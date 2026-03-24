@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatSkillListText,
+  formatSkillListTable,
   shortenPath,
   sourceKindLabel,
 } from "./list-format.js";
@@ -20,25 +20,42 @@ describe("sourceKindLabel", () => {
   });
 });
 
-describe("formatSkillListText", () => {
-  it("groups by tool and includes summary line", () => {
+describe("formatSkillListTable", () => {
+  it("includes header columns and checkbox column", () => {
     const rows: SkillRecord[] = [
       {
         tool: "cursor",
-        id: "demo",
-        displayName: "demo",
-        description: "Hello world",
+        id: "demo-skill",
+        displayName: "demo-skill",
+        description: "A demo skill",
         sourceKind: "user-global",
         path: "/Users/h/.cursor/skills/demo",
         enabled: true,
         enabledSemantic: "native",
         skillKind: "markdown",
       },
+      {
+        tool: "cursor",
+        id: "off-skill",
+        displayName: "off-skill",
+        description: "",
+        sourceKind: "user-global",
+        path: "/Users/h/.cursor/skills/off",
+        enabled: false,
+        enabledSemantic: "native",
+        skillKind: "markdown",
+      },
     ];
-    const text = formatSkillListText(rows, "/Users/h", 80);
-    expect(text).toContain("共 1 条技能");
-    expect(text).toContain("Cursor");
-    expect(text).toContain("demo");
+    const text = formatSkillListTable(rows, "/Users/h", 100);
+    expect(text).toContain("skill-name");
+    expect(text).toContain("skill-desc");
+    expect(text).toContain("skill-path");
+    expect(text).toContain("skill-status");
+    expect(text).toContain("demo-skill");
+    expect(text).toContain("[x]");
+    expect(text).toContain("[ ]");
+    expect(text).toContain("enabled");
+    expect(text).toContain("disabled");
     expect(text).toContain("~/.cursor/skills/demo");
   });
 });

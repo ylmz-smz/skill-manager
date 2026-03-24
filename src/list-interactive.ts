@@ -4,7 +4,7 @@ import {
   enableSkill,
   isSkillControllable,
 } from "./control.js";
-import { formatSkillListText, shortenPath, toolTitle } from "./list-format.js";
+import { formatSkillListTable, shortenPath, toolTitle } from "./list-format.js";
 import type { ControlStrategy, SkillRecord } from "./types.js";
 
 function choiceLabel(r: SkillRecord, homedir: string): string {
@@ -47,7 +47,7 @@ export async function runInteractiveList(opts: {
     return;
   }
 
-  process.stdout.write(formatSkillListText(rows, homedir, termWidth));
+  process.stdout.write(formatSkillListTable(rows, homedir, termWidth));
   process.stdout.write("\n");
 
   let record: SkillRecord;

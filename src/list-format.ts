@@ -34,18 +34,69 @@ export function toolTitle(tool: ToolId): string {
 
 function truncate(s: string, max: number): string {
   const t = s.replace(/\s+/g, " ").trim();
+  if (max <= 0) return "";
   if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
+  return `${t.slice(0, Math.max(0, max - 1))}…`;
 }
 
-/** Plain-text grouped list for terminals. */
-export function formatSkillListText(
+function padCell(s: string, width: number): string {
+  const t = truncate(s, width);
+  return t.padEnd(width, " ");
+}
+
+function borderLine(widths: number[], junction: "┌┬┐" | "├┼┤" | "└┴┘"): string {
+  const [a, b, c] = [...junction];
+  return (
+    a +
+    widths.map((w) => "─".repeat(w + 2)).join(b) +
+    c
+  );
+}
+
+function dataRow(cells: string[], widths: number[]): string {
+  const parts = cells.map((cell, i) => ` ${padCell(cell, widths[i]!)} `);
+  return `│${parts.join("│")}│`;
+}
+
+/** Checkbox-style first column: checked = enabled. */
+function checkCell(enabled: boolean): string {
+  return enabled ? "[x]" : "[ ]";
+}
+
+/**
+ * Table list: col0 = pseudo-checkbox, then skill-name, skill-desc, skill-path, skill-status (English).
+ * Renders one table per tool group (non-empty).
+ */
+export function formatSkillListTable(
   rows: SkillRecord[],
   homedir: string,
   termWidth = 96,
 ): string {
-  const width = Math.max(60, Math.min(termWidth, 120));
-  const line = (ch: string) => ch.repeat(Math.min(width, 72));
+  const innerBudget = Math.max(64, Math.min(termWidth, 128) - 2);
+  const checkW = 5;
+  const statusW = 12; // fits header "skill-status" and values enabled/disabled
+  const nameW = Math.max(
+    14,
+    Math.min(28, Math.floor(innerBudget * 0.2)),
+  );
+  const pathW = Math.max(
+    18,
+    Math.min(42, Math.floor(innerBudget * 0.28)),
+  );
+  const descW = Math.max(
+    12,
+    innerBudget - checkW - nameW - pathW - statusW - 14,
+  );
+  const widths = [checkW, nameW, descW, pathW, statusW];
+
+  const headers = [
+    "[ ]",
+    "skill-name",
+    "skill-desc",
+    "skill-path",
+    "skill-status",
+  ];
+
   const byTool = new Map<ToolId, SkillRecord[]>();
   for (const t of TOOL_ORDER) byTool.set(t, []);
   for (const r of rows) {
@@ -54,44 +105,51 @@ export function formatSkillListText(
   }
 
   const out: string[] = [];
-  out.push(line("─"));
-  out.push(` 共 ${rows.length} 条技能 · 启用 ${rows.filter((r) => r.enabled).length} · 停用 ${rows.filter((r) => !r.enabled).length}`);
-  out.push(line("─"));
+  const on = rows.filter((r) => r.enabled).length;
+  const off = rows.length - on;
+  out.push(
+    `共 ${rows.length} 条技能 · 启用 ${on} · 停用 ${off} · 复选列 [x]=启用 [ ]=停用`,
+  );
+  out.push("");
 
   for (const tool of TOOL_ORDER) {
     const group = byTool.get(tool)!;
     if (group.length === 0) continue;
-    out.push("");
-    out.push(`▸ ${TOOL_TITLE[tool]}  (${group.length})`);
-    out.push(line("·"));
+
+    out.push(`── ${TOOL_TITLE[tool]} (${group.length}) ──`);
+    out.push(borderLine(widths, "┌┬┐"));
+    out.push(dataRow(headers, widths));
+    out.push(borderLine(widths, "├┼┤"));
 
     for (const r of group) {
-      const status = r.enabled ? "● 启用" : "○ 停用";
-      const sem =
-        r.enabledSemantic === "native" ? "配置/元数据" : "归档托管";
-      const src = SOURCE_LABEL[r.sourceKind];
-      out.push(`  ${status}   来源:${src}   (${sem})`);
-      out.push(`    标识  ${r.id}`);
-      if (r.description) {
-        out.push(`    说明  ${truncate(r.description, width - 8)}`);
-      }
-      out.push(`    路径  ${shortenPath(r.path, homedir)}`);
+      const name = r.id;
+      let desc = r.description?.trim() || "—";
       if (r.pluginKey) {
-        out.push(`    插件键 enabledPlugins  ${r.pluginKey}`);
+        desc = truncate(`${desc} · ${r.pluginKey}`, descW);
+      } else {
+        desc = truncate(desc, descW);
       }
-      if (r.invocation?.disableModelInvocation) {
-        out.push(`    元数据  disable-model-invocation: true`);
-      }
-      if (r.notes) {
-        out.push(`    提示  ${truncate(r.notes, width - 8)}`);
-      }
-      out.push("");
+      const path = shortenPath(r.path, homedir);
+      const status = r.enabled ? "enabled" : "disabled";
+      out.push(
+        dataRow(
+          [checkCell(r.enabled), name, desc, path, status],
+          widths,
+        ),
+      );
     }
+
+    out.push(borderLine(widths, "└┴┘"));
+    const hasExtra = group.some((r) => r.notes || r.invocation?.disableModelInvocation);
+    if (hasExtra) {
+      out.push(
+        "  （部分行含 notes / disable-model-invocation，请用 list --json 查看完整字段）",
+      );
+    }
+    out.push("");
   }
 
-  out.push(line("─"));
-  out.push(" 脚本/自动化请使用:  skills-manager list --json");
-  out.push(" 交互式开关:          skills-manager list --interactive");
-  out.push(line("─"));
+  out.push("脚本/自动化: skills-manager list --json");
+  out.push("交互式开关: skills-manager list --interactive");
   return `${out.join("\n")}\n`;
 }

@@ -5,7 +5,7 @@ import { loadState } from "./state.js";
 import { listSkills, sortSkills } from "./list.js";
 import { disableSkill, enableSkill, pickRecord } from "./control.js";
 import { runDoctor } from "./doctor.js";
-import { formatSkillListText } from "./list-format.js";
+import { formatSkillListTable } from "./list-format.js";
 import { runInteractiveList } from "./list-interactive.js";
 import type { ControlStrategy, ToolId } from "./types.js";
 
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
           });
           return;
         }
-        process.stdout.write(formatSkillListText(rows, homedir, termWidth));
+        process.stdout.write(formatSkillListTable(rows, homedir, termWidth));
       },
     );
 

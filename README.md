@@ -19,7 +19,7 @@
 | 能力 | 说明 |
 |------|------|
 | 多源扫描 | Claude 用户/项目 skills、插件市场内 `SKILL.md`、Cursor 用户/项目 skills、内置 manifest（只读）、`~/.agents/skills` 递归 |
-| 格式化列表 | 按工具分组、中文标签、路径缩写成 `~/...`、摘要行统计启停数量 |
+| 表格化列表 | 按工具分表；列为复选示意 `[x]`/`[ ]`、`skill-name`、`skill-desc`、`skill-path`、`skill-status`（enabled/disabled）；路径缩写成 `~/...` |
 | 交互式列表 | `-i`：选择技能 → 确认开启或关闭（内置项不可选或提示去 IDE） |
 | 命令式启停 | `enable` / `disable`，支持 `--strategy`、`--path`、`--dry-run`、`--force`（关闭时） |
 | 自检 | `doctor`：状态文件与归档路径、Claude 设置可读性 |
