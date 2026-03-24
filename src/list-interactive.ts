@@ -52,32 +52,40 @@ export async function runInteractiveList(opts: {
 
   const widths = computeListTableWidths(termWidth);
 
+  /** 仅可在此 CLI 中开关的项（不含 Cursor 内置等），避免表格显示 enabled 却出现「选项不可选」的误导 */
+  const actionable = rows.filter(isSkillControllable);
+  const skipped = rows.length - actionable.length;
+
   process.stdout.write(formatSkillListTable(rows, homedir, termWidth));
   process.stdout.write(formatInteractiveTablePreamble(widths));
+  if (skipped > 0) {
+    process.stdout.write(
+      `\n（下方选择列表已省略 ${skipped} 条无法在 CLI 中开关的技能，多为 Cursor 内置项；请在 Cursor「设置 → Rules / Skills」中切换。上方总表仍可查看其状态。）\n`,
+    );
+  }
   process.stdout.write("\n");
+
+  if (actionable.length === 0) {
+    process.stdout.write(
+      "当前列表中的技能均无法在 CLI 中开关（例如全部为 Cursor 内置）。请使用 IDE 设置或换筛选条件。\n",
+    );
+    return;
+  }
 
   let record: SkillRecord;
   try {
     record = await select<SkillRecord>({
-      message: "当前选中行见下方「指针」与反色条；底部为该行摘要",
+      message: "当前选中行见下方「指针」与反色条；底部为该行摘要（仅含可 CLI 开关的项）",
       theme: skillSelectTheme,
-      choices: rows.map((r, i) => ({
+      choices: actionable.map((r, i) => ({
         name: formatSkillTableRow(r, homedir, widths),
         value: r,
-        description: `▸ 第 ${i + 1}/${rows.length} 行 · ${toolTitle(r.tool)} · ${r.id} · ${shortenPath(r.path, homedir)}`,
-        disabled: isSkillControllable(r)
-          ? false
-          : "Cursor 内置项：请在 Cursor「设置 → Rules / Skills」中切换",
+        description: `▸ 列表中第 ${i + 1}/${actionable.length} 项 · ${toolTitle(r.tool)} · ${r.id} · ${shortenPath(r.path, homedir)} · 状态: ${r.enabled ? "enabled（将可关闭）" : "disabled（将可开启）"}`,
       })),
-      pageSize: Math.min(18, Math.max(8, rows.length)),
+      pageSize: Math.min(18, Math.max(8, actionable.length)),
     });
   } catch {
     process.stdout.write("已取消选择。\n");
-    return;
-  }
-
-  if (!isSkillControllable(record)) {
-    process.stdout.write("该项不可通过本 CLI 开关。\n");
     return;
   }
 

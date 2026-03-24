@@ -20,7 +20,7 @@
 |------|------|
 | 多源扫描 | Claude 用户/项目 skills、插件市场内 `SKILL.md`、Cursor 用户/项目 skills、内置 manifest（只读）、`~/.agents/skills` 递归 |
 | 表格化列表 | 按工具分表；列为复选示意 `[x]`/`[ ]`、`skill-name`、`skill-desc`、`skill-path`、`skill-status`（enabled/disabled）；路径缩写成 `~/...` |
-| 交互式列表 | `-i`：先打印**分组表格**与同列表头；选项为**表格行**；**当前行**为反色加粗 + 左侧 `❯`，列表下方有**青色摘要**（第几行 / id / 路径）随光标移动更新 |
+| 交互式列表 | `-i`：先打印**完整总表**；**选择列表仅含可在 CLI 开关的项**（内置等已省略并提示，避免表里是 enabled 却报「不可选」）；**当前行**反色 + `❯`，底部摘要含 **enabled/disabled 与将执行开或关** |
 | 命令式启停 | `enable` / `disable`，支持 `--strategy`、`--path`、`--dry-run`、`--force`（关闭时） |
 | 自检 | `doctor`：状态文件与归档路径、Claude 设置可读性 |
 
