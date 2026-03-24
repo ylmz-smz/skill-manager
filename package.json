@@ -17,7 +17,8 @@
     "dev": "tsx src/cli.ts",
     "skills-manager": "node ./bin/skills-manager.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "tsx scripts/release.ts"
   },
   "packageManager": "pnpm@9.15.9",
   "repository": {

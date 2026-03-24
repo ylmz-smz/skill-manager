@@ -1,4 +1,4 @@
-import type { ToolId } from "./types.js";
+import type { ToolId } from "../types.js";
 
 const TOOL_IDS = new Set<ToolId>(["claude-code", "cursor", "vscode", "codebuddy", "agents"]);
 

@@ -1,8 +1,42 @@
+import { readFile } from "node:fs/promises";
 import { stat } from "node:fs/promises";
-import { readMergedClaudeSettings } from "./claude-settings.js";
-import { pathExists } from "./fsutil.js";
-import { statePath } from "./paths.js";
+import { join } from "node:path";
+import { pathExists } from "../utils/fs.js";
+import { statePath } from "../utils/paths.js";
 import { loadState } from "./state.js";
+
+interface ClaudeSettings {
+  enabledPlugins?: Record<string, boolean>;
+  [key: string]: unknown;
+}
+
+const SETTINGS_FILES = ["settings.json", "settings.local.json"] as const;
+
+async function readMergedClaudeSettings(
+  homedir: string,
+  projectDir?: string,
+): Promise<{ merged: ClaudeSettings; sources: string[] }> {
+  const sources: string[] = [];
+  const merged: ClaudeSettings = {};
+
+  const dirs: string[] = [join(homedir, ".claude")];
+  if (projectDir) dirs.push(join(projectDir, ".claude"));
+
+  for (const dir of dirs) {
+    for (const name of SETTINGS_FILES) {
+      const p = join(dir, name);
+      try {
+        const raw = await readFile(p, "utf8");
+        const j = JSON.parse(raw) as ClaudeSettings;
+        sources.push(p);
+        Object.assign(merged, j);
+      } catch {
+        /* missing */
+      }
+    }
+  }
+  return { merged, sources };
+}
 
 export interface DoctorIssue {
   level: "error" | "warn";

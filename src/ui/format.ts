@@ -1,4 +1,4 @@
-import type { SkillRecord, SourceKind, ToolId } from "./types.js";
+import type { SkillRecord, SourceKind, ToolId } from "../types.js";
 
 const TOOL_ORDER: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents"];
 

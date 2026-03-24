@@ -1,6 +1,6 @@
 import { basename, dirname, join, relative } from "node:path";
-import { parseSkillMarkdown } from "../frontmatter.js";
-import { findSkillMdUnder, readTextIfExists } from "../fsutil.js";
+import { parseSkillMarkdown } from "../utils/frontmatter.js";
+import { findSkillMdUnder, readTextIfExists } from "../utils/fs.js";
 import type { SkillRecord, ToolId } from "../types.js";
 
 const TOOL: ToolId = "agents";

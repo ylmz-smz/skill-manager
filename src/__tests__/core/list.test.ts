@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { mergeDiskAndArchived, sortSkills } from "./list.js";
-import type { SkillRecord } from "./types.js";
-import type { StateFile } from "./state.js";
+import { mergeDiskAndArchived, sortSkills } from "../../core/list.js";
+import type { SkillRecord } from "../../types.js";
+import type { StateFile } from "../../core/state.js";
 
 describe("mergeDiskAndArchived", () => {
   it("prefers disk record over archived when same id", () => {

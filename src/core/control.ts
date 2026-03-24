@@ -1,6 +1,6 @@
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { archiveDirFor } from "./paths.js";
+import { archiveDirFor } from "../utils/paths.js";
 import {
   atomicMove,
   findArchivedById,
@@ -11,7 +11,7 @@ import {
   type ArchivedEntry,
 } from "./state.js";
 import { setDisableModelInvocation } from "./skill-file.js";
-import type { ControlStrategy, SkillRecord, ToolId } from "./types.js";
+import type { ControlStrategy, SkillRecord, ToolId } from "../types.js";
 
 export function pickRecord(
   records: SkillRecord[],

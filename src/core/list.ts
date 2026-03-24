@@ -1,10 +1,10 @@
-import type { SkillRecord, ToolId } from "./types.js";
+import type { SkillRecord, ToolId } from "../types.js";
 import type { StateFile, ArchivedEntry } from "./state.js";
-import { discoverClaudeSkills } from "./adapters/claude.js";
-import { discoverCursorSkills } from "./adapters/cursor.js";
-import { discoverVscodeSkills } from "./adapters/vscode.js";
-import { discoverCodebuddySkills } from "./adapters/codebuddy.js";
-import { discoverAgentsSkills } from "./adapters/agents.js";
+import { discoverClaudeSkills } from "../adapters/claude.js";
+import { discoverCursorSkills } from "../adapters/cursor.js";
+import { discoverVscodeSkills } from "../adapters/vscode.js";
+import { discoverCodebuddySkills } from "../adapters/codebuddy.js";
+import { discoverAgentsSkills } from "../adapters/agents.js";
 
 function archivedToRecords(entry: ArchivedEntry): SkillRecord {
   return {

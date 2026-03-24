@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { ToolId } from "./types.js";
-import { statePath } from "./paths.js";
+import type { ToolId } from "../types.js";
+import { statePath } from "../utils/paths.js";
 
 export const STATE_VERSION = 1 as const;
 

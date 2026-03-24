@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { pickRecord } from "./control.js";
-import type { SkillRecord, ToolId } from "./types.js";
+import { pickRecord } from "../../core/control.js";
+import type { SkillRecord, ToolId } from "../../types.js";
 
 function r(partial: Partial<SkillRecord> & Pick<SkillRecord, "tool" | "id" | "path">): SkillRecord {
   return {

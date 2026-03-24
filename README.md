@@ -1,34 +1,38 @@
+<p align="right">
+  <strong>English</strong> | <a href="./README.zh-CN.md">中文</a>
+</p>
+
 # skills-manager
 
-面向 **Claude Code**、**Cursor** 与 **`~/.agents/skills`** 的 Skills **发现与启停**命令行工具。用统一的数据模型扫描各工具下的 `SKILL.md` 与相关配置，在支持原生配置时改配置文件，否则用可逆的归档目录策略并记录本地状态。
+A CLI tool for **discovering and toggling** skills across **Claude Code**, **Cursor**, and **`~/.agents/skills`**. It scans `SKILL.md` files and related configurations with a unified data model — modifying native config files when supported, or using a reversible archive-directory strategy with local state tracking otherwise.
 
-## 项目背景与目标
+## Background & Goals
 
-日常会在多个环境里使用「技能」：Claude Code 的用户/项目目录与插件市场、Cursor 的用户/项目技能与内置清单、以及自建的 `~/.agents/skills`。这些来源分散、启停方式不一（有的靠 `settings.json` 里的插件开关，有的靠 frontmatter，Cursor 内置项还只能在 IDE 里切）。
+Skills are scattered across multiple environments: Claude Code user/project directories and its plugin marketplace, Cursor user/project skills and built-in manifests, and the self-managed `~/.agents/skills`. Each has a different toggle mechanism — some use `settings.json` plugin switches, some use frontmatter flags, and Cursor built-in skills can only be managed inside the IDE.
 
-**skills-manager** 试图做三件事：
+**skills-manager** aims to solve three problems:
 
-1. **一眼看清**：把多源技能汇总成同一张清单，标明来源、是否启用、以及判定方式（读配置还是读归档状态）。
-2. **可脚本化**：`list --json` 便于和脚本、CI 集成；`enable` / `disable` 与明确的策略标志适合自动化。
-3. **终端里顺手改**：在真实终端里用 `list --interactive` 选人、再确认开/关，无需记冗长的子命令参数（仍可用 `enable`/`disable` 做精确控制）。
+1. **Unified view**: Aggregate skills from all sources into a single list showing origin, status, and how the status was determined (config vs. archive state).
+2. **Scriptable**: `list --json` for CI/script integration; `enable` / `disable` with explicit strategy flags for automation.
+3. **Terminal-friendly**: `list --interactive` for picking and confirming enable/disable in a real terminal — no need to memorize verbose subcommand arguments (precise `enable`/`disable` still available).
 
-设计取舍见仓库内实现：Claude 优先动 **`enabledPlugins`** 与 **`disable-model-invocation`**；Cursor/Agents 自定义目录默认 **整目录归档** 到 `~/.config/skill-manager/archive/`；Cursor **内置技能**只展示、不通过本 CLI 修改。
+Design trade-offs: Claude prefers modifying **`enabledPlugins`** and **`disable-model-invocation`**; Cursor/Agents custom directories default to **whole-directory archival** under `~/.config/skill-manager/archive/`; Cursor **built-in skills** are display-only and not modifiable via this CLI.
 
-## 功能概览
+## Feature Overview
 
-| 能力 | 说明 |
-|------|------|
-| 多源扫描 | Claude 用户/项目 skills、插件市场内 `SKILL.md`、Cursor 用户/项目 skills、内置 manifest（只读）、`~/.agents/skills` 递归 |
-| 表格化列表 | 按工具分表；列为复选示意 `[x]`/`[ ]`、`skill-name`、`skill-desc`、`skill-path`、`skill-status`（enabled/disabled）；路径缩写成 `~/...` |
-| 交互式列表 | `-i`：先打印**完整总表**；**选择列表仅含可在 CLI 开关的项**（内置等已省略并提示，避免表里是 enabled 却报「不可选」）；**当前行**反色 + `❯`，底部摘要含 **enabled/disabled 与将执行开或关** |
-| 命令式启停 | `enable` / `disable`，支持 `--strategy`、`--path`、`--dry-run`、`--force`（关闭时） |
-| 自检 | `doctor`：状态文件与归档路径、Claude 设置可读性 |
+| Capability | Description |
+|------------|-------------|
+| Multi-source scan | Claude user/project skills, marketplace `SKILL.md`, Cursor user/project skills, built-in manifest (read-only), `~/.agents/skills` recursive |
+| Tabular listing | Grouped by tool; columns: checkbox `[x]`/`[ ]`, `skill-name`, `skill-desc`, `skill-path`, `skill-status` (enabled/disabled); paths abbreviated to `~/…` |
+| Interactive listing | `-i`: prints **full table** first; **selection only includes CLI-toggleable items** (built-ins omitted with notice); **current row** highlighted with `❯`, bottom summary shows **enabled/disabled and pending action** |
+| Imperative toggle | `enable` / `disable` with `--strategy`, `--path`, `--dry-run`, `--force` (for disable) |
+| Health check | `doctor`: validates state file, archive paths, and Claude settings readability |
 
-## 安装与运行
+## Installation & Usage
 
-### 从 npm 安装（全局命令 `skills-manager`）
+### Install from npm (global command `skills-manager`)
 
-包名 **`skill-manager-cli`**（npm 上 `skills-manager` 已被其他占用）。安装后全局可用 **`skills-manager`**：
+The package name is **`skill-manager-cli`** (`skills-manager` was already taken on npm). After installation the global command **`skills-manager`** is available:
 
 ```bash
 npm install -g skill-manager-cli
@@ -36,89 +40,84 @@ skills-manager list --help
 skills-manager list
 ```
 
-发布前本地验证 tarball：`npm pack` 后 `npm install -g ./skill-manager-cli-0.1.0.tgz`，再执行 `skills-manager --version`。
+Pre-publish local verification: `npm pack`, then `npm install -g ./skill-manager-cli-<version>.tgz`, then `skills-manager --version`.
 
-### 从源码（pnpm）
+### From source (pnpm)
 
 ```bash
 cd skill-manager
 pnpm install
-pnpm run build   # 首次或改源码后：入口 shim 会加载 dist/cli.js
+pnpm run build   # Required on first run or after source changes
 pnpm run skills-manager -- list
-pnpm run skills-manager -- list cursor              # 只看 Cursor（位置参数）
-pnpm run skills-manager -- list -i cursor         # 交互 + 仅 Cursor
-pnpm run skills-manager -- list -i -t agents      # 同义：-t / --tool
+pnpm run skills-manager -- list cursor              # Cursor only (positional arg)
+pnpm run skills-manager -- list -i cursor           # Interactive + Cursor only
+pnpm run skills-manager -- list -i -t agents        # Same: -t / --tool
 pnpm run skills-manager -- list --json
-# 或：pnpm run dev -- list
-# 或：node bin/skills-manager.mjs list
+# Or: pnpm run dev -- list
+# Or: node bin/skills-manager.mjs list
 ```
 
-**说明**：在本仓库根目录下，pnpm **不会**把当前包的 `bin` 放进可执行路径，因此不要用 `pnpm exec skills-manager`。请用 **`pnpm run skills-manager -- …`**，或在 `pnpm link --global` / 作为其他项目的依赖安装后再用 `pnpm exec`。
+**Note**: In this repo root, pnpm does **not** put the current package's `bin` on the executable path. Use **`pnpm run skills-manager -- …`**, or use `pnpm exec` after `pnpm link --global` or installing as a dependency in another project.
 
-全局链接（可选）：在本仓库执行 `pnpm run build` 后 `pnpm link --global`。
+Global link (optional): run `pnpm run build` then `pnpm link --global` in this repo.
 
-## 命令说明
+## Commands
 
-| 命令 | 作用 |
-|------|------|
-| `list` | 扫描并列出技能；`--tool`、`--project`；`--json` 输出 JSON；`-i` / `--interactive` 交互选择与确认 |
-| `disable` | 关闭技能（需 `--force` 或环境变量 `SKILLS_MANAGER_YES=1`，交互模式已口头确认故不需要） |
-| `enable` | 开启技能 |
-| `doctor` | 检查 `~/.config/skill-manager/state.json`、归档目录与 Claude 设置 |
+| Command | Description |
+|---------|-------------|
+| `list` | Scan and list skills; `--tool`, `--project`; `--json` for JSON output; `-i` / `--interactive` for interactive selection |
+| `disable` | Disable a skill (requires `--force` or env `SKILLS_MANAGER_YES=1`; interactive mode confirms verbally) |
+| `enable` | Enable a skill |
+| `doctor` | Check `~/.config/skill-manager/state.json`, archive directories, and Claude settings |
 
-**list 常用参数**
+**Common `list` options**
 
-- **筛选工具**：`--tool` / **`-t`**，或与子命令等价的**位置参数** `list [toolArg]`。示例：`list cursor`、`list cc`（Claude）、`list a`（agents）、`list all` 或省略表示全部。与 `-t` 同时指定且不一致时会报错。
-- `--project <dir>` 包含项目级 `.claude/skills`、`.cursor/skills`
-- `-i, --interactive`：需 **TTY**；先打印格式化列表，再选择技能，最后确认 **开启** 或 **关闭**
-- `--strategy auto|native|managed`：仅在与 `-i` 联用时影响后续启停策略（默认 `auto`）
-- `--global`：与 Claude + `-i` 联用时写入用户级 `~/.claude/settings.local.json`
-- `--dry-run`：与 `-i` 联用时只模拟不写盘
+- **Filter by tool**: `--tool` / **`-t`**, or equivalent **positional argument** `list [toolArg]`. Examples: `list cursor`, `list cc` (Claude), `list a` (agents), `list all` or omit for all. Conflicting `--tool` and positional arg raises an error.
+- `--project <dir>` — include project-level `.claude/skills`, `.cursor/skills`
+- `-i, --interactive` — requires **TTY**; prints formatted list, then pick a skill and confirm **enable** or **disable**
+- `--strategy auto|native|managed` — only affects subsequent toggle when used with `-i` (default: `auto`)
+- `--global` — with Claude + `-i`: write to user-level `~/.claude/settings.local.json`
+- `--dry-run` — with `-i`: simulate without writing to disk
 
-非交互的 `enable`/`disable` 仍支持：`--dry-run`、`--strategy`、`--path`、`--global` 等（见下表与各工具语义）。
+Non-interactive `enable`/`disable` also support: `--dry-run`, `--strategy`, `--path`, `--global`, etc.
 
-## 各工具「启用」含义与默认策略
+## "Enabled" Semantics & Default Strategy Per Tool
 
-| 工具 | 列表里「启用」含义 | 默认关闭方式 | 说明 |
-|------|-------------------|-------------|------|
-| **Claude Code**（插件技能） | 合并后的 `settings.json` / `settings.local.json` 中 **`enabledPlugins`** | **native** | 写入 **`settings.local.json`**（项目或用户）。`list` 会显示 **`pluginKey`** 便于对照配置。 |
-| **Claude Code**（用户/项目 `SKILL.md`） | 未设 `disable-model-invocation` | **native** | 改 `SKILL.md` 的 YAML frontmatter。 |
-| **Cursor**（用户/项目 `SKILL.md`） | 未设 `disable-model-invocation` | **managed** | 将技能目录移到 `~/.config/skill-manager/archive/cursor/<id>/`，状态写入 `state.json`。 |
-| **Cursor**（内置） | 清单中展示为启用 | 不可 CLI | 请在 **Cursor → 设置 → Rules / Skills** 中切换。 |
-| **Agents** | 同 Cursor 自定义技能 | **managed** | 归档在 `archive/agents/` 下。 |
+| Tool | "Enabled" means | Default disable method | Notes |
+|------|-----------------|----------------------|-------|
+| **Claude Code** (plugin skills) | Present in merged `settings.json` / `settings.local.json` **`enabledPlugins`** | **native** | Writes to **`settings.local.json`** (project or user). `list` shows **`pluginKey`** for reference. |
+| **Claude Code** (user/project `SKILL.md`) | No `disable-model-invocation` flag | **native** | Modifies `SKILL.md` YAML frontmatter. |
+| **Cursor** (user/project `SKILL.md`) | No `disable-model-invocation` flag | **managed** | Moves skill directory to `~/.config/skill-manager/archive/cursor/<id>/`, state written to `state.json`. |
+| **Cursor** (built-in) | Shown as enabled in listing | Not via CLI | Toggle in **Cursor → Settings → Rules / Skills**. |
+| **Agents** | Same as Cursor custom skills | **managed** | Archived under `archive/agents/`. |
 
-若只希望改 frontmatter、**不**移动目录，对 Cursor/Agents 使用 **`--strategy native`**。
+To only modify frontmatter **without** moving directories, use **`--strategy native`** for Cursor/Agents.
 
-## 扫描路径摘要
+## Scan Paths Summary
 
-- **Claude**：`~/.claude/skills/*`、`<project>/.claude/skills/*`、`~/.claude/plugins/marketplaces/**/SKILL.md`（有深度上限）。
-- **Cursor**：`~/.cursor/skills/*`、`<project>/.cursor/skills/*`，以及只读的 `~/.cursor/skills-cursor/.cursor-managed-skills-manifest.json`。
-- **Agents**：`~/.agents/skills/**/SKILL.md`（有深度上限）。
+- **Claude**: `~/.claude/skills/*`, `<project>/.claude/skills/*`, `~/.claude/plugins/marketplaces/**/SKILL.md` (depth-limited).
+- **Cursor**: `~/.cursor/skills/*`, `<project>/.cursor/skills/*`, and read-only `~/.cursor/skills-cursor/.cursor-managed-skills-manifest.json`.
+- **Agents**: `~/.agents/skills/**/SKILL.md` (depth-limited).
 
-## 本地状态文件
+## Local State File
 
-托管式关闭会在 **`~/.config/skill-manager/state.json`** 中记录原路径、归档路径与时间，可用 **`doctor`** 做一致性检查。
+Managed disables are recorded in **`~/.config/skill-manager/state.json`** with original path, archive path, and timestamp. Use **`doctor`** for consistency checks.
 
-## 开发
+## Development
 
 ```bash
 pnpm run dev -- list --tool all
 pnpm test
 ```
 
-## 发布到 npm（检查项）
+## Release
 
-| 项 | 说明 |
-|----|------|
-| **包名** | 已使用 **`skill-manager-cli`**（npm 上 `skills-manager` 已被占用）。全局命令仍为 **`skills-manager`**。若需改名，改 `package.json` 的 `name` 并同步 README。 |
-| **`prepublishOnly`** | 已配置 `npm run build`，发布前会自动 `tsc`，勿在未构建时手工发包。 |
-| **`files`** | 仅包含 `dist/`、`bin/`、`LICENSE`；测试文件已从 `dist` 排除（`tsconfig` 排除 `*.test.ts`）。 |
-| **`bin`** | `./bin/skills-manager.mjs`（含 shebang），全局安装后应在 `PATH` 中出现 `skills-manager`。 |
-| **`engines`** | `node >= 20.12.0`（与 `@inquirer/prompts` 要求一致）；已去掉 `pnpm`，避免仅 npm 用户安装时被误伤。 |
-| **元数据** | 已填 `repository` / `bugs` / `homepage` / `keywords`；请确认与仓库一致。 |
-| **登录与发包** | `npm login`（若开启 2FA 需 OTP）→ `npm publish`。作用域包需 `--access public`。 |
-| **本地验包** | `npm pack` → `npm install -g ./skill-manager-cli-0.1.0.tgz` → `skills-manager --version` |
+```bash
+pnpm run release          # Interactive version selection (patch / minor / major)
+```
 
-## 许可证
+The script automates: version bump → build → git tag → publish to npm. See `scripts/release.ts` for details.
+
+## License
 
 MIT

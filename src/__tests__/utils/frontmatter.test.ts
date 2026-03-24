@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSkillMarkdown } from "./frontmatter.js";
+import { parseSkillMarkdown } from "../../utils/frontmatter.js";
 
 describe("parseSkillMarkdown", () => {
   it("reads name, description, disable-model-invocation", () => {

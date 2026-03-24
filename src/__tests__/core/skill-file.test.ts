@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { setDisableModelInvocation } from "./skill-file.js";
+import { setDisableModelInvocation } from "../../core/skill-file.js";
 
 describe("setDisableModelInvocation", () => {
   it("writes and clears frontmatter flag", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseListToolToken,
   resolveListToolFilter,
-} from "./list-tool.js";
+} from "../../ui/tool-filter.js";
 
 describe("parseListToolToken", () => {
   it("parses names and aliases", () => {

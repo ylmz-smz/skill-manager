@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { basename, resolve } from "node:path";
 import { Command } from "commander";
-import { loadState } from "./state.js";
-import { listSkills, sortSkills } from "./list.js";
-import { disableSkill, enableSkill, pickRecord } from "./control.js";
-import { runDoctor } from "./doctor.js";
-import { formatSkillListTable } from "./list-format.js";
-import { runInteractiveList } from "./list-interactive.js";
-import { resolveListToolFilter } from "./list-tool.js";
+import { loadState } from "./core/state.js";
+import { listSkills, sortSkills } from "./core/list.js";
+import { disableSkill, enableSkill, pickRecord } from "./core/control.js";
+import { runDoctor } from "./core/doctor.js";
+import { formatSkillListTable } from "./ui/format.js";
+import { runInteractiveList } from "./ui/interactive.js";
+import { resolveListToolFilter } from "./ui/tool-filter.js";
 import type { ControlStrategy, ToolId } from "./types.js";
 
 const TOOLS = ["claude-code", "cursor", "vscode", "codebuddy", "agents", "all"] as const;

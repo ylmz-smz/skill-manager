@@ -3,7 +3,7 @@ import {
   disableSkill,
   enableSkill,
   isSkillControllable,
-} from "./control.js";
+} from "../core/control.js";
 import {
   computeListTableWidths,
   formatInteractiveTablePreamble,
@@ -11,9 +11,9 @@ import {
   formatSkillTableRow,
   shortenPath,
   toolTitle,
-} from "./list-format.js";
-import { skillSelectTheme } from "./select-theme.js";
-import type { ControlStrategy, SkillRecord } from "./types.js";
+} from "./format.js";
+import { skillSelectTheme } from "./theme.js";
+import type { ControlStrategy, SkillRecord } from "../types.js";
 
 function assertTTY(): void {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {

@@ -3,8 +3,8 @@ import {
   formatSkillListTable,
   shortenPath,
   sourceKindLabel,
-} from "./list-format.js";
-import type { SkillRecord } from "./types.js";
+} from "../../ui/format.js";
+import type { SkillRecord } from "../../types.js";
 
 describe("shortenPath", () => {
   it("replaces home prefix with ~", () => {

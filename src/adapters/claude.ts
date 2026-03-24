@@ -1,6 +1,6 @@
 import { basename, join, relative } from "node:path";
-import { parseSkillMarkdown } from "../frontmatter.js";
-import { listSkillDirsFlat, readTextIfExists } from "../fsutil.js";
+import { parseSkillMarkdown } from "../utils/frontmatter.js";
+import { listSkillDirsFlat, readTextIfExists } from "../utils/fs.js";
 import type { SkillRecord, SourceKind, ToolId } from "../types.js";
 
 const TOOL: ToolId = "claude-code";
