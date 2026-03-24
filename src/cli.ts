@@ -7,6 +7,7 @@ import { disableSkill, enableSkill, pickRecord } from "./control.js";
 import { runDoctor } from "./doctor.js";
 import { formatSkillListTable } from "./list-format.js";
 import { runInteractiveList } from "./list-interactive.js";
+import { resolveListToolFilter } from "./list-tool.js";
 import type { ControlStrategy, ToolId } from "./types.js";
 
 const TOOLS = ["claude-code", "cursor", "agents", "all"] as const;
@@ -59,9 +60,15 @@ async function main(): Promise<void> {
     .version("0.1.0");
 
   program
-    .command("list")
-    .description("List discovered skills")
-    .option("--tool <id>", "claude-code | cursor | agents | all", "all")
+    .command("list [toolArg]")
+    .description(
+      "List discovered skills; optional toolArg = cursor | claude-code | agents（简写 c/cc/a）或 all",
+    )
+    .option(
+      "-t, --tool <id>",
+      "Same as positional toolArg: claude-code | cursor | agents | all",
+      "all",
+    )
     .option("--project <dir>", "Project root for project-scoped skills")
     .option("--json", "Print JSON (machine-readable)")
     .option(
@@ -79,21 +86,24 @@ async function main(): Promise<void> {
     )
     .option("--dry-run", "With --interactive: do not write files")
     .action(
-      async (opts: {
-        tool: string;
-        project?: string;
-        json?: boolean;
-        interactive?: boolean;
-        strategy: string;
-        global?: boolean;
-        dryRun?: boolean;
-      }) => {
+      async (
+        toolArg: string | undefined,
+        opts: {
+          tool: string;
+          project?: string;
+          json?: boolean;
+          interactive?: boolean;
+          strategy: string;
+          global?: boolean;
+          dryRun?: boolean;
+        },
+      ) => {
         const homedir = process.env.HOME || process.env.USERPROFILE || "";
         if (!homedir) throw new Error("Could not resolve home directory");
         if (opts.json && opts.interactive) {
           throw new Error("不能同时使用 --json 与 --interactive");
         }
-        const tool = parseTool(opts.tool);
+        const tool = resolveListToolFilter(toolArg, opts.tool);
         const projectDir = opts.project ? resolve(opts.project) : undefined;
         const state = await loadState(homedir);
         let rows = await listSkills({ homedir, projectDir, tool, state });

@@ -4,15 +4,16 @@ import {
   enableSkill,
   isSkillControllable,
 } from "./control.js";
-import { formatSkillListTable, shortenPath, toolTitle } from "./list-format.js";
+import {
+  computeListTableWidths,
+  formatInteractiveTablePreamble,
+  formatSkillListTable,
+  formatSkillTableRow,
+  shortenPath,
+  toolTitle,
+} from "./list-format.js";
+import { skillSelectTheme } from "./select-theme.js";
 import type { ControlStrategy, SkillRecord } from "./types.js";
-
-function choiceLabel(r: SkillRecord, homedir: string): string {
-  const on = r.enabled ? "启用" : "停用";
-  const t = toolTitle(r.tool);
-  const p = shortenPath(r.path, homedir);
-  return `[${on}] ${t} · ${r.id}  ${p}`;
-}
 
 function assertTTY(): void {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -43,25 +44,32 @@ export async function runInteractiveList(opts: {
   } = opts;
 
   if (rows.length === 0) {
-    process.stdout.write("当前条件下未发现任何技能。\n");
+    process.stdout.write(
+      "当前条件下未发现任何技能。可去掉筛选或改用: list all / 不传位置参数。\n",
+    );
     return;
   }
 
+  const widths = computeListTableWidths(termWidth);
+
   process.stdout.write(formatSkillListTable(rows, homedir, termWidth));
+  process.stdout.write(formatInteractiveTablePreamble(widths));
   process.stdout.write("\n");
 
   let record: SkillRecord;
   try {
     record = await select<SkillRecord>({
-      message: "选择一条技能（方向键移动，回车确认）",
-      choices: rows.map((r) => ({
-        name: choiceLabel(r, homedir),
+      message: "当前选中行见下方「指针」与反色条；底部为该行摘要",
+      theme: skillSelectTheme,
+      choices: rows.map((r, i) => ({
+        name: formatSkillTableRow(r, homedir, widths),
         value: r,
+        description: `▸ 第 ${i + 1}/${rows.length} 行 · ${toolTitle(r.tool)} · ${r.id} · ${shortenPath(r.path, homedir)}`,
         disabled: isSkillControllable(r)
           ? false
           : "Cursor 内置项：请在 Cursor「设置 → Rules / Skills」中切换",
       })),
-      pageSize: Math.min(15, Math.max(5, rows.length)),
+      pageSize: Math.min(18, Math.max(8, rows.length)),
     });
   } catch {
     process.stdout.write("已取消选择。\n");

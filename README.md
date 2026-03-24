@@ -20,7 +20,7 @@
 |------|------|
 | 多源扫描 | Claude 用户/项目 skills、插件市场内 `SKILL.md`、Cursor 用户/项目 skills、内置 manifest（只读）、`~/.agents/skills` 递归 |
 | 表格化列表 | 按工具分表；列为复选示意 `[x]`/`[ ]`、`skill-name`、`skill-desc`、`skill-path`、`skill-status`（enabled/disabled）；路径缩写成 `~/...` |
-| 交互式列表 | `-i`：选择技能 → 确认开启或关闭（内置项不可选或提示去 IDE） |
+| 交互式列表 | `-i`：先打印**分组表格**与同列表头；选项为**表格行**；**当前行**为反色加粗 + 左侧 `❯`，列表下方有**青色摘要**（第几行 / id / 路径）随光标移动更新 |
 | 命令式启停 | `enable` / `disable`，支持 `--strategy`、`--path`、`--dry-run`、`--force`（关闭时） |
 | 自检 | `doctor`：状态文件与归档路径、Claude 设置可读性 |
 
@@ -31,7 +31,9 @@ cd skill-manager
 pnpm install
 pnpm run build   # 首次或改源码后：入口 shim 会加载 dist/cli.js
 pnpm run skills-manager -- list
-pnpm run skills-manager -- list --interactive
+pnpm run skills-manager -- list cursor              # 只看 Cursor（位置参数）
+pnpm run skills-manager -- list -i cursor         # 交互 + 仅 Cursor
+pnpm run skills-manager -- list -i -t agents      # 同义：-t / --tool
 pnpm run skills-manager -- list --json
 # 或：pnpm run dev -- list
 # 或：node bin/skills-manager.mjs list
@@ -52,7 +54,7 @@ pnpm run skills-manager -- list --json
 
 **list 常用参数**
 
-- `--tool claude-code|cursor|agents|all`
+- **筛选工具**：`--tool` / **`-t`**，或与子命令等价的**位置参数** `list [toolArg]`。示例：`list cursor`、`list cc`（Claude）、`list a`（agents）、`list all` 或省略表示全部。与 `-t` 同时指定且不一致时会报错。
 - `--project <dir>` 包含项目级 `.claude/skills`、`.cursor/skills`
 - `-i, --interactive`：需 **TTY**；先打印格式化列表，再选择技能，最后确认 **开启** 或 **关闭**
 - `--strategy auto|native|managed`：仅在与 `-i` 联用时影响后续启停策略（默认 `auto`）

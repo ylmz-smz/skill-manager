@@ -15,6 +15,14 @@ const SOURCE_LABEL: Record<SourceKind, string> = {
   "cursor-builtin": "内置（IDE）",
 };
 
+export const LIST_TABLE_HEADERS = [
+  "[ ]",
+  "skill-name",
+  "skill-desc",
+  "skill-path",
+  "skill-status",
+] as const;
+
 export function shortenPath(absPath: string, homedir: string): string {
   const h = homedir.replace(/\\/g, "/");
   const p = absPath.replace(/\\/g, "/");
@@ -53,28 +61,20 @@ function borderLine(widths: number[], junction: "┌┬┐" | "├┼┤" | "└
   );
 }
 
-function dataRow(cells: string[], widths: number[]): string {
+export function formatTableDataRow(cells: string[], widths: number[]): string {
   const parts = cells.map((cell, i) => ` ${padCell(cell, widths[i]!)} `);
   return `│${parts.join("│")}│`;
 }
 
-/** Checkbox-style first column: checked = enabled. */
 function checkCell(enabled: boolean): string {
   return enabled ? "[x]" : "[ ]";
 }
 
-/**
- * Table list: col0 = pseudo-checkbox, then skill-name, skill-desc, skill-path, skill-status (English).
- * Renders one table per tool group (non-empty).
- */
-export function formatSkillListTable(
-  rows: SkillRecord[],
-  homedir: string,
-  termWidth = 96,
-): string {
+/** 与 formatSkillListTable 使用相同列宽算法。 */
+export function computeListTableWidths(termWidth: number): number[] {
   const innerBudget = Math.max(64, Math.min(termWidth, 128) - 2);
   const checkW = 5;
-  const statusW = 12; // fits header "skill-status" and values enabled/disabled
+  const statusW = 12;
   const nameW = Math.max(
     14,
     Math.min(28, Math.floor(innerBudget * 0.2)),
@@ -87,15 +87,58 @@ export function formatSkillListTable(
     12,
     innerBudget - checkW - nameW - pathW - statusW - 14,
   );
-  const widths = [checkW, nameW, descW, pathW, statusW];
+  return [checkW, nameW, descW, pathW, statusW];
+}
 
-  const headers = [
-    "[ ]",
-    "skill-name",
-    "skill-desc",
-    "skill-path",
-    "skill-status",
-  ];
+function skillToCells(
+  r: SkillRecord,
+  homedir: string,
+  descW: number,
+): string[] {
+  const name = r.id;
+  let desc = r.description?.trim() || "—";
+  if (r.pluginKey) {
+    desc = truncate(`${desc} · ${r.pluginKey}`, descW);
+  } else {
+    desc = truncate(desc, descW);
+  }
+  const path = shortenPath(r.path, homedir);
+  const status = r.enabled ? "enabled" : "disabled";
+  return [checkCell(r.enabled), name, desc, path, status];
+}
+
+/** 单行技能表格线（与总表列对齐）。 */
+export function formatSkillTableRow(
+  r: SkillRecord,
+  homedir: string,
+  widths: number[],
+): string {
+  const descW = widths[2]!;
+  return formatTableDataRow(skillToCells(r, homedir, descW), widths);
+}
+
+/** 交互选择前打印的表头区（顶框 + 表头 + 中缝）。 */
+export function formatInteractiveTablePreamble(widths: number[]): string {
+  return [
+    "",
+    "──────── 请选择一行（列与上方总表一致）────────",
+    borderLine(widths, "┌┬┐"),
+    formatTableDataRow([...LIST_TABLE_HEADERS], widths),
+    borderLine(widths, "├┼┤"),
+  ].join("\n");
+}
+
+/**
+ * Table list: col0 = pseudo-checkbox, then skill-name, skill-desc, skill-path, skill-status (English).
+ * Renders one table per tool group (non-empty).
+ */
+export function formatSkillListTable(
+  rows: SkillRecord[],
+  homedir: string,
+  termWidth = 96,
+): string {
+  const widths = computeListTableWidths(termWidth);
+  const headers = [...LIST_TABLE_HEADERS];
 
   const byTool = new Map<ToolId, SkillRecord[]>();
   for (const t of TOOL_ORDER) byTool.set(t, []);
@@ -118,29 +161,18 @@ export function formatSkillListTable(
 
     out.push(`── ${TOOL_TITLE[tool]} (${group.length}) ──`);
     out.push(borderLine(widths, "┌┬┐"));
-    out.push(dataRow(headers, widths));
+    out.push(formatTableDataRow(headers, widths));
     out.push(borderLine(widths, "├┼┤"));
 
+    const descW = widths[2]!;
     for (const r of group) {
-      const name = r.id;
-      let desc = r.description?.trim() || "—";
-      if (r.pluginKey) {
-        desc = truncate(`${desc} · ${r.pluginKey}`, descW);
-      } else {
-        desc = truncate(desc, descW);
-      }
-      const path = shortenPath(r.path, homedir);
-      const status = r.enabled ? "enabled" : "disabled";
-      out.push(
-        dataRow(
-          [checkCell(r.enabled), name, desc, path, status],
-          widths,
-        ),
-      );
+      out.push(formatTableDataRow(skillToCells(r, homedir, descW), widths));
     }
 
     out.push(borderLine(widths, "└┴┘"));
-    const hasExtra = group.some((r) => r.notes || r.invocation?.disableModelInvocation);
+    const hasExtra = group.some(
+      (r) => r.notes || r.invocation?.disableModelInvocation,
+    );
     if (hasExtra) {
       out.push(
         "  （部分行含 notes / disable-model-invocation，请用 list --json 查看完整字段）",
