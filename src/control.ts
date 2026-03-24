@@ -217,3 +217,8 @@ export async function enableSkill(opts: {
     );
   }
 }
+
+/** False for Cursor built-in entries (must toggle in IDE). */
+export function isSkillControllable(record: SkillRecord): boolean {
+  return record.skillKind !== "cursor-builtin";
+}

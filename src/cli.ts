@@ -5,6 +5,8 @@ import { loadState } from "./state.js";
 import { listSkills, sortSkills } from "./list.js";
 import { disableSkill, enableSkill, pickRecord } from "./control.js";
 import { runDoctor } from "./doctor.js";
+import { formatSkillListText } from "./list-format.js";
+import { runInteractiveList } from "./list-interactive.js";
 import type { ControlStrategy, ToolId } from "./types.js";
 
 const TOOLS = ["claude-code", "cursor", "agents", "all"] as const;
@@ -61,29 +63,61 @@ async function main(): Promise<void> {
     .description("List discovered skills")
     .option("--tool <id>", "claude-code | cursor | agents | all", "all")
     .option("--project <dir>", "Project root for project-scoped skills")
-    .option("--json", "Print JSON lines")
-    .action(async (opts: { tool: string; project?: string; json?: boolean }) => {
-      const homedir = process.env.HOME || process.env.USERPROFILE || "";
-      if (!homedir) throw new Error("Could not resolve home directory");
-      const tool = parseTool(opts.tool);
-      const projectDir = opts.project ? resolve(opts.project) : undefined;
-      const state = await loadState(homedir);
-      let rows = await listSkills({ homedir, projectDir, tool, state });
-      rows = sortSkills(rows);
-      if (opts.json) {
-        process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`);
-        return;
-      }
-      for (const r of rows) {
-        const on = r.enabled ? "on" : "off";
-        const sem = r.enabledSemantic;
-        const pk = r.pluginKey ? ` pluginKey=${r.pluginKey}` : "";
-        const note = r.notes ? ` | ${r.notes}` : "";
-        process.stdout.write(
-          `[${r.tool}] ${r.id} (${r.sourceKind}) ${on} [${sem}] path=${r.path}${pk}${note}\n`,
-        );
-      }
-    });
+    .option("--json", "Print JSON (machine-readable)")
+    .option(
+      "-i, --interactive",
+      "Terminal UI: pick a skill then confirm enable/disable (requires TTY)",
+    )
+    .option(
+      "--strategy <s>",
+      "With --interactive: auto | native | managed",
+      "auto",
+    )
+    .option(
+      "--global",
+      "With --interactive + Claude: write user ~/.claude/settings.local.json",
+    )
+    .option("--dry-run", "With --interactive: do not write files")
+    .action(
+      async (opts: {
+        tool: string;
+        project?: string;
+        json?: boolean;
+        interactive?: boolean;
+        strategy: string;
+        global?: boolean;
+        dryRun?: boolean;
+      }) => {
+        const homedir = process.env.HOME || process.env.USERPROFILE || "";
+        if (!homedir) throw new Error("Could not resolve home directory");
+        if (opts.json && opts.interactive) {
+          throw new Error("不能同时使用 --json 与 --interactive");
+        }
+        const tool = parseTool(opts.tool);
+        const projectDir = opts.project ? resolve(opts.project) : undefined;
+        const state = await loadState(homedir);
+        let rows = await listSkills({ homedir, projectDir, tool, state });
+        rows = sortSkills(rows);
+        if (opts.json) {
+          process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`);
+          return;
+        }
+        const termWidth = process.stdout.columns ?? 96;
+        if (opts.interactive) {
+          await runInteractiveList({
+            homedir,
+            projectDir,
+            rows,
+            strategy: parseStrategy(opts.strategy),
+            dryRun: Boolean(opts.dryRun),
+            globalSettings: Boolean(opts.global),
+            termWidth,
+          });
+          return;
+        }
+        process.stdout.write(formatSkillListText(rows, homedir, termWidth));
+      },
+    );
 
   program
     .command("disable")
