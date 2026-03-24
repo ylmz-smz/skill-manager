@@ -26,6 +26,20 @@
 
 ## 安装与运行
 
+### 从 npm 安装（全局命令 `skills-manager`）
+
+包名 **`skill-manager-cli`**（npm 上 `skills-manager` 已被其他占用）。安装后全局可用 **`skills-manager`**：
+
+```bash
+npm install -g skill-manager-cli
+skills-manager list --help
+skills-manager list
+```
+
+发布前本地验证 tarball：`npm pack` 后 `npm install -g ./skill-manager-cli-0.1.0.tgz`，再执行 `skills-manager --version`。
+
+### 从源码（pnpm）
+
 ```bash
 cd skill-manager
 pnpm install
@@ -91,6 +105,19 @@ pnpm run skills-manager -- list --json
 pnpm run dev -- list --tool all
 pnpm test
 ```
+
+## 发布到 npm（检查项）
+
+| 项 | 说明 |
+|----|------|
+| **包名** | 已使用 **`skill-manager-cli`**（npm 上 `skills-manager` 已被占用）。全局命令仍为 **`skills-manager`**。若需改名，改 `package.json` 的 `name` 并同步 README。 |
+| **`prepublishOnly`** | 已配置 `npm run build`，发布前会自动 `tsc`，勿在未构建时手工发包。 |
+| **`files`** | 仅包含 `dist/`、`bin/`、`LICENSE`；测试文件已从 `dist` 排除（`tsconfig` 排除 `*.test.ts`）。 |
+| **`bin`** | `./bin/skills-manager.mjs`（含 shebang），全局安装后应在 `PATH` 中出现 `skills-manager`。 |
+| **`engines`** | `node >= 20.12.0`（与 `@inquirer/prompts` 要求一致）；已去掉 `pnpm`，避免仅 npm 用户安装时被误伤。 |
+| **元数据** | 已填 `repository` / `bugs` / `homepage` / `keywords`；请确认与仓库一致。 |
+| **登录与发包** | `npm login`（若开启 2FA 需 OTP）→ `npm publish`。作用域包需 `--access public`。 |
+| **本地验包** | `npm pack` → `npm install -g ./skill-manager-cli-0.1.0.tgz` → `skills-manager --version` |
 
 ## 许可证
 

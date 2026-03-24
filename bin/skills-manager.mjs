@@ -9,7 +9,7 @@ const distCli = join(root, "..", "dist", "cli.js");
 
 if (!existsSync(distCli)) {
   console.error(
-    "skills-manager: dist/cli.js not found. Run: pnpm run build",
+    "skills-manager: dist/cli.js missing in package. Reinstall skill-manager-cli or report at https://github.com/ylmz-smz/skill-manager/issues",
   );
   process.exit(1);
 }
