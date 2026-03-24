@@ -1,0 +1,36 @@
+{
+  "name": "skills-manager",
+  "version": "0.1.0",
+  "description": "CLI to discover and enable/disable skills across Claude Code, Cursor, and ~/.agents/skills",
+  "type": "module",
+  "bin": {
+    "skills-manager": "./bin/skills-manager.mjs"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "skills-manager": "node ./bin/skills-manager.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  },
+  "license": "MIT"
+}
