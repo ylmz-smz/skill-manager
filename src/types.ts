@@ -1,4 +1,4 @@
-export type ToolId = "claude-code" | "cursor" | "agents";
+export type ToolId = "claude-code" | "cursor" | "vscode" | "codebuddy" | "agents";
 
 export type SourceKind =
   | "user-global"

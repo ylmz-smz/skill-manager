@@ -1,10 +1,12 @@
 import type { SkillRecord, SourceKind, ToolId } from "./types.js";
 
-const TOOL_ORDER: ToolId[] = ["claude-code", "cursor", "agents"];
+const TOOL_ORDER: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents"];
 
 const TOOL_TITLE: Record<ToolId, string> = {
   "claude-code": "Claude Code",
   cursor: "Cursor",
+  vscode: "VSCode（GitHub Copilot）",
+  codebuddy: "CodeBuddy（腾讯）",
   agents: "Agents（~/.agents/skills）",
 };
 

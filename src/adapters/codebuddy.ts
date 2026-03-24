@@ -1,16 +1,15 @@
-import { basename, join, relative } from "node:path";
+import { basename, join } from "node:path";
 import { parseSkillMarkdown } from "../frontmatter.js";
 import { listSkillDirsFlat, readTextIfExists } from "../fsutil.js";
 import type { SkillRecord, SourceKind, ToolId } from "../types.js";
 
-const TOOL: ToolId = "claude-code";
+const TOOL: ToolId = "codebuddy";
 
 async function skillRecordFromDir(
   skillDir: string,
   sourceKind: SourceKind,
 ): Promise<SkillRecord | undefined> {
-  const skillPath = join(skillDir, "SKILL.md");
-  const raw = await readTextIfExists(skillPath);
+  const raw = await readTextIfExists(join(skillDir, "SKILL.md"));
   if (!raw) return undefined;
   const { frontmatter } = parseSkillMarkdown(raw);
   const dirName = basename(skillDir);
@@ -30,51 +29,25 @@ async function skillRecordFromDir(
   };
 }
 
-export async function discoverClaudeSkills(
+export async function discoverCodebuddySkills(
   homedir: string,
   projectDir?: string,
 ): Promise<SkillRecord[]> {
   const out: SkillRecord[] = [];
 
-  const userSkillsRoot = join(homedir, ".claude", "skills");
-  for (const dir of await listSkillDirsFlat(userSkillsRoot)) {
+  const userRoot = join(homedir, ".codebuddy", "skills");
+  for (const dir of await listSkillDirsFlat(userRoot)) {
     const r = await skillRecordFromDir(dir, "user-global");
     if (r) out.push(r);
   }
 
   if (projectDir) {
-    const projRoot = join(projectDir, ".claude", "skills");
+    const projRoot = join(projectDir, ".codebuddy", "skills");
     for (const dir of await listSkillDirsFlat(projRoot)) {
       const r = await skillRecordFromDir(dir, "project");
       if (r) out.push(r);
     }
   }
 
-  return dedupeClaudePaths(out);
-}
-
-function dedupeClaudePaths(records: SkillRecord[]): SkillRecord[] {
-  const seen = new Set<string>();
-  const result: SkillRecord[] = [];
-  for (const r of records) {
-    const norm = r.path.replace(/\\/g, "/");
-    if (seen.has(norm)) continue;
-    seen.add(norm);
-    result.push(r);
-  }
-  return result;
-}
-
-export function claudeRelativePath(
-  homedir: string,
-  projectDir: string | undefined,
-  absPath: string,
-): string {
-  const relHome = relative(join(homedir, ".claude"), absPath);
-  if (!relHome.startsWith("..")) return relHome;
-  if (projectDir) {
-    const relProj = relative(join(projectDir, ".claude"), absPath);
-    if (!relProj.startsWith("..")) return relProj;
-  }
-  return absPath;
+  return out;
 }

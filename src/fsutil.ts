@@ -20,14 +20,23 @@ export async function readTextIfExists(p: string): Promise<string | undefined> {
   }
 }
 
+async function isEntryDir(entry: import("node:fs").Dirent, full: string): Promise<boolean> {
+  if (entry.isDirectory()) return true;
+  if (entry.isSymbolicLink()) {
+    try { return (await stat(full)).isDirectory(); } catch { return false; }
+  }
+  return false;
+}
+
 /** Immediate subdirs of root that contain SKILL.md */
 export async function listSkillDirsFlat(root: string): Promise<string[]> {
   if (!(await pathExists(root))) return [];
   const out: string[] = [];
   const entries = await readdir(root, { withFileTypes: true });
   for (const e of entries) {
-    if (!e.isDirectory() || SKIP.has(e.name)) continue;
+    if (SKIP.has(e.name)) continue;
     const dir = join(root, e.name);
+    if (!(await isEntryDir(e, dir))) continue;
     if (await pathExists(join(dir, "SKILL.md"))) out.push(dir);
   }
   return out;
@@ -50,9 +59,9 @@ export async function findSkillMdUnder(
   for (const e of entries) {
     if (SKIP.has(e.name)) continue;
     const full = join(root, e.name);
-    if (e.isFile() && e.name === "SKILL.md") {
+    if ((e.isFile() || e.isSymbolicLink()) && e.name === "SKILL.md") {
       out.push(full);
-    } else if (e.isDirectory()) {
+    } else if (await isEntryDir(e, full)) {
       out.push(...(await findSkillMdUnder(full, maxDepth, depth + 1)));
     }
   }

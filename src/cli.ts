@@ -10,11 +10,11 @@ import { runInteractiveList } from "./list-interactive.js";
 import { resolveListToolFilter } from "./list-tool.js";
 import type { ControlStrategy, ToolId } from "./types.js";
 
-const TOOLS = ["claude-code", "cursor", "agents", "all"] as const;
+const TOOLS = ["claude-code", "cursor", "vscode", "codebuddy", "agents", "all"] as const;
 
 function parseTool(v: string): ToolId | "all" {
   if (v === "all") return "all";
-  if (v === "claude-code" || v === "cursor" || v === "agents") return v;
+  if (v === "claude-code" || v === "cursor" || v === "vscode" || v === "codebuddy" || v === "agents") return v;
   throw new Error(
     `--tool must be one of: ${TOOLS.join(", ")} (got ${JSON.stringify(v)})`,
   );

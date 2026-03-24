@@ -2,6 +2,8 @@ import type { SkillRecord, ToolId } from "./types.js";
 import type { StateFile, ArchivedEntry } from "./state.js";
 import { discoverClaudeSkills } from "./adapters/claude.js";
 import { discoverCursorSkills } from "./adapters/cursor.js";
+import { discoverVscodeSkills } from "./adapters/vscode.js";
+import { discoverCodebuddySkills } from "./adapters/codebuddy.js";
 import { discoverAgentsSkills } from "./adapters/agents.js";
 
 function archivedToRecords(entry: ArchivedEntry): SkillRecord {
@@ -44,9 +46,10 @@ export async function listSkills(opts: {
   state: StateFile;
 }): Promise<SkillRecord[]> {
   const { homedir, projectDir, tool, state } = opts;
+  const ALL_TOOLS: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents"];
   const tools =
     tool === "all"
-      ? new Set<ToolId>(["claude-code", "cursor", "agents"])
+      ? new Set<ToolId>(ALL_TOOLS)
       : new Set<ToolId>([tool]);
 
   const disk: SkillRecord[] = [];
@@ -55,6 +58,12 @@ export async function listSkills(opts: {
   }
   if (tools.has("cursor")) {
     disk.push(...(await discoverCursorSkills(homedir, projectDir)));
+  }
+  if (tools.has("vscode")) {
+    disk.push(...(await discoverVscodeSkills(homedir, projectDir)));
+  }
+  if (tools.has("codebuddy")) {
+    disk.push(...(await discoverCodebuddySkills(homedir, projectDir)));
   }
   if (tools.has("agents")) {
     disk.push(...(await discoverAgentsSkills(homedir)));

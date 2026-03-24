@@ -1,10 +1,5 @@
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import {
-  claudeSettingsDir,
-  withEnabledPlugin,
-  writeClaudeSettingsFile,
-} from "./claude-settings.js";
 import { archiveDirFor } from "./paths.js";
 import {
   atomicMove,
@@ -46,10 +41,8 @@ function inferStrategy(
 ): "native" | "managed" {
   if (explicit === "native") return "native";
   if (explicit === "managed") return "managed";
-  if (record.tool === "claude-code" && record.pluginKey) return "native";
-  if (record.tool === "claude-code" && record.skillKind === "markdown")
-    return "native";
   if (record.skillKind === "cursor-builtin") return "native";
+  if (record.skillKind === "markdown") return "native";
   return "managed";
 }
 
@@ -71,33 +64,12 @@ export async function disableSkill(opts: {
     );
   }
 
-  if (
-    strat === "native" &&
-    (record.tool === "cursor" || record.tool === "agents") &&
-    record.skillKind === "markdown"
-  ) {
+  if (strat === "native" && record.skillKind === "markdown") {
     await setDisableModelInvocation(
       join(record.path, "SKILL.md"),
       true,
       dryRun,
     );
-    return;
-  }
-
-  if (strat === "native" && record.tool === "claude-code") {
-    if (record.pluginKey) {
-      const scope = globalSettings || !projectDir ? "user" : "project";
-      const dir = claudeSettingsDir(homedir, scope, projectDir);
-      const path = join(dir, "settings.local.json");
-      await writeClaudeSettingsFile(
-        path,
-        (prev) => withEnabledPlugin(prev, record.pluginKey!, false),
-        dryRun,
-      );
-      return;
-    }
-    const skillMd = join(record.path, "SKILL.md");
-    await setDisableModelInvocation(skillMd, true, dryRun);
     return;
   }
 
@@ -181,33 +153,12 @@ export async function enableSkill(opts: {
     );
   }
 
-  if (
-    strat === "native" &&
-    (record.tool === "cursor" || record.tool === "agents") &&
-    record.skillKind === "markdown"
-  ) {
+  if (strat === "native" && record.skillKind === "markdown") {
     await setDisableModelInvocation(
       join(record.path, "SKILL.md"),
       false,
       dryRun,
     );
-    return;
-  }
-
-  if (strat === "native" && record.tool === "claude-code") {
-    if (record.pluginKey) {
-      const scope = globalSettings || !projectDir ? "user" : "project";
-      const dir = claudeSettingsDir(homedir, scope, projectDir);
-      const path = join(dir, "settings.local.json");
-      await writeClaudeSettingsFile(
-        path,
-        (prev) => withEnabledPlugin(prev, record.pluginKey!, true),
-        dryRun,
-      );
-      return;
-    }
-    const skillMd = join(record.path, "SKILL.md");
-    await setDisableModelInvocation(skillMd, false, dryRun);
     return;
   }
 

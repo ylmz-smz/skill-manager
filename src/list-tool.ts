@@ -1,15 +1,17 @@
 import type { ToolId } from "./types.js";
 
-const TOOL_IDS = new Set<ToolId>(["claude-code", "cursor", "agents"]);
+const TOOL_IDS = new Set<ToolId>(["claude-code", "cursor", "vscode", "codebuddy", "agents"]);
 
 export function parseListToolToken(raw: string): ToolId {
   const t = raw.trim().toLowerCase();
   if (t === "claude" || t === "cc") return "claude-code";
   if (t === "cursor" || t === "c") return "cursor";
+  if (t === "vscode" || t === "vs" || t === "v") return "vscode";
+  if (t === "codebuddy" || t === "cb") return "codebuddy";
   if (t === "agents" || t === "a" || t === "agent") return "agents";
   if (TOOL_IDS.has(t as ToolId)) return t as ToolId;
   throw new Error(
-    `未知的工具「${raw}」。请使用: cursor | claude-code | agents（简写: c | cc | a）`,
+    `未知的工具「${raw}」。请使用: cursor | claude-code | vscode | codebuddy | agents（简写: c | cc | vs | cb | a）`,
   );
 }
 
