@@ -4,7 +4,13 @@
 
 # skills-manager
 
-面向 **Claude Code**、**Cursor** 与 **`~/.agents/skills`** 的 Skills **发现与启停**命令行工具。用统一的数据模型扫描各工具下的 `SKILL.md` 与相关配置，在支持原生配置时改配置文件，否则用可逆的归档目录策略并记录本地状态。
+一个用于统一管理的 CLI，覆盖：
+
+- **Skills**（`SKILL.md`）
+- **Subagents / Agents**（`.cursor/.claude/.codex 的 agents/*.md`）
+- **MCP servers**（Cursor 的 `mcp.json`；Claude Code 的 `~/.claude.json` / `.mcp.json`）
+
+提供统一列表、`--json` 脚本输出，以及**安全且可逆**的启停操作。
 
 ## 项目背景与目标
 
@@ -23,10 +29,13 @@
 | 能力 | 说明 |
 |------|------|
 | 多源扫描 | Claude 用户/项目 skills、插件市场内 `SKILL.md`、Cursor 用户/项目 skills、内置 manifest（只读）、`~/.agents/skills` 递归 |
+| Subagents 扫描 | `~/.{cursor,claude,codex}/agents/` 与 `<project>/.{cursor,claude,codex}/agents/` |
+| MCP 扫描 | Cursor：`~/.cursor/mcp.json` + `<project>/.cursor/mcp.json`；Claude Code：`~/.claude.json` + `<project>/.mcp.json`（同名项目覆盖） |
 | 表格化列表 | 按工具分表；列为复选示意 `[x]`/`[ ]`、`skill-name`、`skill-desc`、`skill-path`、`skill-status`（enabled/disabled）；路径缩写成 `~/...` |
 | 交互式列表 | `-i`：先打印**完整总表**；**选择列表仅含可在 CLI 开关的项**（内置等已省略并提示，避免表里是 enabled 却报「不可选」）；**当前行**反色 + `❯`，底部摘要含 **enabled/disabled 与将执行开或关** |
 | 命令式启停 | `enable` / `disable`，支持 `--strategy`、`--path`、`--dry-run`、`--force`（关闭时） |
 | 自检 | `doctor`：状态文件与归档路径、Claude 设置可读性 |
+| 配置文件 | 可选的全局/项目 YAML 配置：额外扫描目录、MCP 写入闸门 |
 
 ## 安装与运行
 
@@ -65,11 +74,69 @@ pnpm run skills-manager -- list --json
 
 | 命令 | 作用 |
 |------|------|
-| `list` | 扫描并列出技能；`--tool`、`--project`；`--json` 输出 JSON；`-i` / `--interactive` 交互选择与确认 |
+| `list` |（兼容入口）扫描并列出技能；`--tool`、`--project`；`--json` 输出 JSON；`-i` / `--interactive` 交互选择与确认 |
+| `skills` | 管理 skills（`skills list|enable|disable`） |
+| `agents` | 列出并启停 subagents（`agents enable/disable`） |
+| `mcp` | 列出并启停 MCP servers（`mcp enable/disable`），受配置与 `--apply` 保护 |
+| `config` | 查看/校验配置文件（`config path|validate`） |
 | `disable` | 关闭技能（需 `--force` 或环境变量 `SKILLS_MANAGER_YES=1`，交互模式已口头确认故不需要） |
 | `enable` | 开启技能 |
 | `doctor` | 检查 `~/.config/skill-manager/state.json`、归档目录与 Claude 设置 |
 
+### 配置文件（可选）
+
+- **全局**：`~/.config/skill-manager/config.yaml`
+- **项目**：`<project>/skill-manager.yaml`
+
+示例：
+
+```yaml
+version: 1
+scan:
+  extraSkillRoots:
+    - ~/my-skills
+  extraAgentRoots:
+    - ~/my-agents
+mcp:
+  readOnly: true
+```
+
+命令：
+
+```bash
+skills-manager config path --project .
+skills-manager config validate --project .
+```
+
+### Subagents（agents）
+
+```bash
+skills-manager agents
+skills-manager agents --json
+skills-manager agents cursor --project .
+
+skills-manager agents disable --tool cursor verifier --force
+skills-manager agents enable --tool cursor verifier
+```
+
+### MCP servers（mcp）
+
+```bash
+skills-manager mcp
+skills-manager mcp cursor --project .
+skills-manager mcp --json
+```
+
+写入保护：
+
+- 默认 `mcp.readOnly: true` **禁止写入**
+- 允许写入后仍必须加 `--apply`
+- 编辑 `~/.claude.json` 需要 `--force` 且会生成时间戳备份
+
+```bash
+skills-manager mcp disable --tool cursor github --apply
+skills-manager mcp enable --tool cursor github --apply
+```
 **list 常用参数**
 
 - **筛选工具**：`--tool` / **`-t`**，或与子命令等价的**位置参数** `list [toolArg]`。示例：`list cursor`、`list cc`（Claude）、`list a`（agents）、`list all` 或省略表示全部。与 `-t` 同时指定且不一致时会报错。

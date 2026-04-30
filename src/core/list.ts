@@ -6,6 +6,26 @@ import { discoverVscodeSkills } from "../adapters/vscode.js";
 import { discoverCodebuddySkills } from "../adapters/codebuddy.js";
 import { discoverAgentsSkills } from "../adapters/agents.js";
 
+function inferSkillToolFromRoot(root: string): ToolId {
+  const p = root.replace(/\\/g, "/");
+  if (p.includes("/.claude/skills")) return "claude-code";
+  if (p.includes("/.cursor/skills")) return "cursor";
+  if (p.includes("/.copilot/skills") || p.includes("/.github/skills")) return "vscode";
+  if (p.includes("/.codebuddy/skills")) return "codebuddy";
+  if (p.includes("/.agents/skills")) return "agents";
+  return "cursor";
+}
+
+function inferSourceKindFromRoot(
+  root: string,
+  projectDir?: string,
+): "user-global" | "project" {
+  if (!projectDir) return "user-global";
+  const r = root.replace(/\\/g, "/");
+  const p = projectDir.replace(/\\/g, "/");
+  return r === p || r.startsWith(`${p}/`) ? "project" : "user-global";
+}
+
 function archivedToRecords(entry: ArchivedEntry): SkillRecord {
   return {
     tool: entry.tool,
@@ -46,29 +66,72 @@ export async function listSkills(opts: {
   projectDir?: string;
   tool: ToolId | "all";
   state: StateFile;
+  extraSkillRoots?: string[];
 }): Promise<SkillRecord[]> {
-  const { homedir, projectDir, tool, state } = opts;
+  const { homedir, projectDir, tool, state, extraSkillRoots } = opts;
   const ALL_TOOLS: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents", "codex"];
   const tools =
     tool === "all"
       ? new Set<ToolId>(ALL_TOOLS)
       : new Set<ToolId>([tool]);
 
+  const extraByTool = new Map<
+    ToolId,
+    Array<{ root: string; sourceKind: "user-global" | "project" }>
+  >();
+  for (const t of ALL_TOOLS) extraByTool.set(t, []);
+  for (const r of extraSkillRoots ?? []) {
+    const t = inferSkillToolFromRoot(r);
+    extraByTool.get(t)!.push({
+      root: r,
+      sourceKind: inferSourceKindFromRoot(r, projectDir),
+    });
+  }
+
   const disk: SkillRecord[] = [];
   if (tools.has("claude-code")) {
-    disk.push(...(await discoverClaudeSkills(homedir, projectDir)));
+    disk.push(
+      ...(await discoverClaudeSkills(
+        homedir,
+        projectDir,
+        extraByTool.get("claude-code"),
+      )),
+    );
   }
   if (tools.has("cursor")) {
-    disk.push(...(await discoverCursorSkills(homedir, projectDir)));
+    disk.push(
+      ...(await discoverCursorSkills(
+        homedir,
+        projectDir,
+        extraByTool.get("cursor"),
+      )),
+    );
   }
   if (tools.has("vscode")) {
-    disk.push(...(await discoverVscodeSkills(homedir, projectDir)));
+    disk.push(
+      ...(await discoverVscodeSkills(
+        homedir,
+        projectDir,
+        extraByTool.get("vscode"),
+      )),
+    );
   }
   if (tools.has("codebuddy")) {
-    disk.push(...(await discoverCodebuddySkills(homedir, projectDir)));
+    disk.push(
+      ...(await discoverCodebuddySkills(
+        homedir,
+        projectDir,
+        extraByTool.get("codebuddy"),
+      )),
+    );
   }
   if (tools.has("agents")) {
-    disk.push(...(await discoverAgentsSkills(homedir)));
+    disk.push(
+      ...(await discoverAgentsSkills(
+        homedir,
+        extraByTool.get("agents")?.map((x) => x.root),
+      )),
+    );
   }
 
   if (tool === "all") {

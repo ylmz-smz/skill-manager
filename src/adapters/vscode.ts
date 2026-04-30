@@ -32,6 +32,7 @@ async function skillRecordFromDir(
 export async function discoverVscodeSkills(
   homedir: string,
   projectDir?: string,
+  extraRoots?: Array<{ root: string; sourceKind: SourceKind }>,
 ): Promise<SkillRecord[]> {
   const out: SkillRecord[] = [];
 
@@ -45,6 +46,13 @@ export async function discoverVscodeSkills(
     const projRoot = join(projectDir, ".github", "skills");
     for (const dir of await listSkillDirsFlat(projRoot)) {
       const r = await skillRecordFromDir(dir, "project");
+      if (r) out.push(r);
+    }
+  }
+
+  for (const ex of extraRoots ?? []) {
+    for (const dir of await listSkillDirsFlat(ex.root)) {
+      const r = await skillRecordFromDir(dir, ex.sourceKind);
       if (r) out.push(r);
     }
   }

@@ -4,7 +4,13 @@
 
 # skills-manager
 
-A CLI tool for **discovering and toggling** skills across **Claude Code**, **Cursor**, and **`~/.agents/skills`**. It scans `SKILL.md` files and related configurations with a unified data model — modifying native config files when supported, or using a reversible archive-directory strategy with local state tracking otherwise.
+A CLI tool for **discovering and managing**:
+
+- **Skills** (`SKILL.md`)
+- **Subagents** (`.cursor/.claude/.codex agents/*.md`)
+- **MCP servers** (Cursor `mcp.json`, Claude Code `~/.claude.json` / `.mcp.json`)
+
+…across **Cursor**, **Claude Code**, **Codex compatibility paths**, and **`~/.agents/skills`**, with unified listing, scriptable JSON output, and safe reversible toggles.
 
 ## Background & Goals
 
@@ -23,10 +29,13 @@ Design trade-offs: Claude prefers modifying **`enabledPlugins`** and **`disable-
 | Capability | Description |
 |------------|-------------|
 | Multi-source scan | Claude user/project skills, marketplace `SKILL.md`, Cursor user/project skills, built-in manifest (read-only), `~/.agents/skills` recursive |
+| Subagents scan | Cursor/Claude/Codex subagents under `~/.{cursor,claude,codex}/agents/` and `<project>/.{cursor,claude,codex}/agents/` |
+| MCP scan | Cursor: `~/.cursor/mcp.json` + `<project>/.cursor/mcp.json`; Claude Code: `~/.claude.json` + `<project>/.mcp.json` (project overrides) |
 | Tabular listing | Grouped by tool; columns: checkbox `[x]`/`[ ]`, `skill-name`, `skill-desc`, `skill-path`, `skill-status` (enabled/disabled); paths abbreviated to `~/…` |
 | Interactive listing | `-i`: prints **full table** first; **selection only includes CLI-toggleable items** (built-ins omitted with notice); **current row** highlighted with `❯`, bottom summary shows **enabled/disabled and pending action** |
 | Imperative toggle | `enable` / `disable` with `--strategy`, `--path`, `--dry-run`, `--force` (for disable) |
 | Health check | `doctor`: validates state file, archive paths, and Claude settings readability |
+| Config files | Optional global & project YAML config for extra scan roots and MCP write guard |
 
 ## Installation & Usage
 
@@ -65,10 +74,82 @@ Global link (optional): run `pnpm run build` then `pnpm link --global` in this r
 
 | Command | Description |
 |---------|-------------|
-| `list` | Scan and list skills; `--tool`, `--project`; `--json` for JSON output; `-i` / `--interactive` for interactive selection |
+| `list` | (Compatibility) Scan and list skills; `--tool`, `--project`; `--json` for JSON output; `-i` / `--interactive` for interactive selection |
+| `skills` | Manage skills (`skills list|enable|disable`) |
+| `agents` | List and toggle subagents (`agents enable/disable`) |
+| `mcp` | List and toggle MCP servers (`mcp enable/disable`) — guarded by config + `--apply` |
+| `config` | Inspect/validate config files (`config path|validate`) |
 | `disable` | Disable a skill (requires `--force` or env `SKILLS_MANAGER_YES=1`; interactive mode confirms verbally) |
 | `enable` | Enable a skill |
 | `doctor` | Check `~/.config/skill-manager/state.json`, archive directories, and Claude settings |
+
+### Config files (optional)
+
+- **Global**: `~/.config/skill-manager/config.yaml`
+- **Project**: `<project>/skill-manager.yaml`
+
+Example:
+
+```yaml
+version: 1
+scan:
+  extraSkillRoots:
+    - ~/my-skills
+  extraAgentRoots:
+    - ~/my-agents
+mcp:
+  readOnly: true
+```
+
+Commands:
+
+```bash
+skills-manager config path --project .
+skills-manager config validate --project .
+```
+
+### Subagents (agents)
+
+List:
+
+```bash
+skills-manager agents
+skills-manager agents --json
+skills-manager agents cursor --project .
+```
+
+Toggle (managed archive, reversible):
+
+```bash
+skills-manager agents disable --tool cursor verifier --force
+skills-manager agents enable --tool cursor verifier
+```
+
+### MCP servers (mcp)
+
+List:
+
+```bash
+skills-manager mcp
+skills-manager mcp cursor --project .
+skills-manager mcp --json
+```
+
+Write guard:
+
+- Writes are **disabled by default** via `mcp.readOnly: true`
+- Even when allowed, writes require `--apply`
+- Editing `~/.claude.json` requires `--force` and creates a timestamped backup
+
+Toggle:
+
+```bash
+# disable: remove from config and stash into state (reversible)
+skills-manager mcp disable --tool cursor github --apply
+
+# restore from state stash
+skills-manager mcp enable --tool cursor github --apply
+```
 
 **Common `list` options**
 
@@ -98,10 +179,17 @@ To only modify frontmatter **without** moving directories, use **`--strategy nat
 - **Claude**: `~/.claude/skills/*`, `<project>/.claude/skills/*`, `~/.claude/plugins/marketplaces/**/SKILL.md` (depth-limited).
 - **Cursor**: `~/.cursor/skills/*`, `<project>/.cursor/skills/*`, and read-only `~/.cursor/skills-cursor/.cursor-managed-skills-manifest.json`.
 - **Agents**: `~/.agents/skills/**/SKILL.md` (depth-limited).
+- **Subagents**: `~/.{cursor,claude,codex}/agents/*.md` and `<project>/.{cursor,claude,codex}/agents/*.md`
+- **MCP**: Cursor `~/.cursor/mcp.json` / `<project>/.cursor/mcp.json`; Claude `~/.claude.json` / `<project>/.mcp.json`
 
 ## Local State File
 
-Managed disables are recorded in **`~/.config/skill-manager/state.json`** with original path, archive path, and timestamp. Use **`doctor`** for consistency checks.
+Managed disables are recorded in **`~/.config/skill-manager/state.json`**:
+
+- Skills/Subagents: archive metadata (reversible move)
+- MCP: stashed `mcpServers[id]` payload for reversible restore
+
+Use **`doctor`** for consistency checks.
 
 ## Development
 

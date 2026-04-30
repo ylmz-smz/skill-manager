@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => {
     return { isFile: () => true };
   });
   const readFileMock = vi.fn(async () =>
-    JSON.stringify({ version: 2, archived: [] }, null, 2),
+    JSON.stringify({ version: 3, archived: [], mcpArchived: [] }, null, 2),
   );
   return { renameMock, writeFileMock, mkdirMock, statMock, readFileMock };
 });
@@ -36,6 +36,8 @@ vi.mock("node:fs/promises", async () => {
 
 describe("subagents enable/disable (managed archive)", () => {
   it("disables by archiving and writing state", async () => {
+    mocks.renameMock.mockClear();
+    mocks.writeFileMock.mockClear();
     await disableSubagent({
       homedir: "/h",
       record: {
@@ -55,10 +57,12 @@ describe("subagents enable/disable (managed archive)", () => {
   });
 
   it("enables by restoring from archive and updating state", async () => {
+    mocks.renameMock.mockClear();
+    mocks.writeFileMock.mockClear();
     mocks.readFileMock.mockImplementationOnce(async () =>
       JSON.stringify(
         {
-          version: 2,
+          version: 3,
           archived: [
             {
               tool: "cursor",
@@ -69,6 +73,7 @@ describe("subagents enable/disable (managed archive)", () => {
               resourceKind: "subagent",
             },
           ],
+          mcpArchived: [],
         },
         null,
         2,
@@ -88,8 +93,8 @@ describe("subagents enable/disable (managed archive)", () => {
       },
       dryRun: false,
     });
-    expect(mocks.renameMock).toHaveBeenCalledTimes(2);
-    expect(mocks.writeFileMock).toHaveBeenCalledTimes(2);
+    expect(mocks.renameMock).toHaveBeenCalledTimes(1);
+    expect(mocks.writeFileMock).toHaveBeenCalledTimes(1);
   });
 });
 
