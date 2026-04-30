@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import * as yaml from "js-yaml";
+import yaml from "js-yaml";
 import { configRoot } from "../utils/paths.js";
 import { pathExists } from "../utils/fs.js";
 import type { ControlStrategy } from "../types.js";
@@ -160,7 +160,7 @@ export function validateConfigShape(raw: unknown): SkillManagerConfig {
 async function readYamlIfExists(path: string): Promise<unknown | undefined> {
   if (!(await pathExists(path))) return undefined;
   const raw = await readFile(path, "utf8");
-  return yaml.load(raw);
+  return (yaml as any).load(raw);
 }
 
 async function readJsonIfExists(path: string): Promise<unknown | undefined> {
@@ -314,7 +314,7 @@ export async function detectConfigFiles(opts: {
 
 function configToYamlString(c: SkillManagerConfig): string {
   // Keep output minimal and stable enough for humans.
-  return yaml.dump(c, {
+  return (yaml as any).dump(c, {
     lineWidth: 120,
     noRefs: true,
     sortKeys: false,
