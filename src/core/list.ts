@@ -1,5 +1,5 @@
 import type { SkillRecord, ToolId } from "../types.js";
-import type { StateFile, ArchivedEntry } from "./state.js";
+import type { StateFile, ArchivedEntry, LinkedEntry } from "./state.js";
 import { discoverClaudeSkills } from "../adapters/claude.js";
 import { discoverCursorSkills } from "../adapters/cursor.js";
 import { discoverVscodeSkills } from "../adapters/vscode.js";
@@ -41,6 +41,21 @@ function archivedToRecords(entry: ArchivedEntry): SkillRecord {
   };
 }
 
+function linkedToRecord(entry: LinkedEntry): SkillRecord {
+  return {
+    tool: entry.tool,
+    id: entry.id,
+    displayName: entry.id,
+    description: "Managed by skills-manager (symlink toggle).",
+    sourceKind: "user-global",
+    path: entry.managedPath,
+    enabled: false,
+    enabledSemantic: "managed",
+    skillKind: "markdown",
+    notes: `Link path: ${entry.linkPath}`,
+  };
+}
+
 /** Exported for tests — merges disk scan with archived-only entries from state. */
 export function mergeDiskAndArchived(
   disk: SkillRecord[],
@@ -50,9 +65,16 @@ export function mergeDiskAndArchived(
   const archived = state.archived.filter(
     (a) => a.resourceKind === "skill" && tools.has(a.tool),
   );
+  const linked = (state.linked ?? []).filter(
+    (e) => e.resourceKind === "skill" && tools.has(e.tool),
+  );
   const byKey = new Map<string, SkillRecord>();
   for (const a of archived) {
     const r = archivedToRecords(a);
+    byKey.set(`${r.tool}:${r.id}`, r);
+  }
+  for (const e of linked) {
+    const r = linkedToRecord(e);
     byKey.set(`${r.tool}:${r.id}`, r);
   }
   for (const r of disk) {

@@ -1,14 +1,17 @@
-import { mkdir, stat } from "node:fs/promises";
-import { dirname } from "node:path";
-import { archiveDirForKind } from "../utils/paths.js";
+import { lstat, mkdir, stat, symlink, unlink } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { archiveDirForKind, slugId } from "../utils/paths.js";
 import type { SubagentRecord, SubagentToolId } from "../types.js";
 import {
   atomicMove,
   findArchivedById,
+  findLinkedById,
   loadState,
   removeArchived,
+  removeLinked,
   saveState,
   upsertArchived,
+  upsertLinked,
   type ArchivedEntry,
 } from "./state.js";
 
@@ -40,9 +43,53 @@ export async function disableSubagent(opts: {
   homedir: string;
   record: SubagentRecord;
   dryRun: boolean;
+  strategy?: "managed" | "symlink";
+  unifiedRoot?: string;
 }): Promise<void> {
   const { homedir, record, dryRun } = opts;
   const tool = record.tool;
+  const strategy = opts.strategy ?? "managed";
+
+  if (strategy === "symlink") {
+    const root = opts.unifiedRoot;
+    if (!root) throw new Error("unified.roots.agents is required for symlink strategy");
+    const state = await loadState(homedir);
+    if (findLinkedById(state, tool, record.id, "subagent")) return;
+
+    const managedPath = join(root, tool, `${slugId(record.id)}.md`);
+    await mkdir(dirname(managedPath), { recursive: true });
+
+    if (!dryRun) {
+      const ls = await lstat(record.path).catch(() => null);
+      if (ls && ls.isSymbolicLink()) {
+        await unlink(record.path);
+      }
+    }
+
+    const st = await stat(record.path).catch(() => null);
+    if (st) {
+      await atomicMove(record.path, managedPath, dryRun);
+    } else {
+      const managedExists = await stat(managedPath).catch(() => null);
+      if (!managedExists) throw new Error(`Cannot manage missing agent path: ${record.path}`);
+    }
+
+    if (!dryRun) {
+      await saveState(
+        homedir,
+        upsertLinked(state, {
+          tool,
+          id: record.id,
+          resourceKind: "subagent",
+          linkPath: record.path,
+          managedPath,
+          linkedAt: new Date().toISOString(),
+        }),
+        false,
+      );
+    }
+    return;
+  }
 
   const state = await loadState(homedir);
   if (findArchivedById(state, tool, record.id, "subagent")) return;
@@ -79,12 +126,32 @@ export async function enableSubagent(opts: {
   homedir: string;
   record: SubagentRecord;
   dryRun: boolean;
+  strategy?: "managed" | "symlink";
 }): Promise<void> {
   const { homedir, record, dryRun } = opts;
   const tool = record.tool;
+  const strategy = opts.strategy ?? "managed";
 
   const state = await loadState(homedir);
+  const linked = findLinkedById(state, tool, record.id, "subagent");
   const archived = findArchivedById(state, tool, record.id, "subagent");
+  if (strategy === "symlink") {
+    if (!linked) return;
+    if (!dryRun) {
+      await mkdir(dirname(linked.linkPath), { recursive: true });
+      const existing = await lstat(linked.linkPath).catch(() => null);
+      if (existing) {
+        if (existing.isSymbolicLink()) {
+          await unlink(linked.linkPath);
+        } else {
+          throw new Error(`Link target already exists: ${linked.linkPath}`);
+        }
+      }
+      await symlink(linked.managedPath, linked.linkPath, "file");
+      await saveState(homedir, removeLinked(state, tool, record.id, "subagent"), false);
+    }
+    return;
+  }
   if (!archived) return;
 
   if (!dryRun) {

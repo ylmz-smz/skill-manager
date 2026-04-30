@@ -37,7 +37,7 @@ vi.mock("../../core/state.js", async () => {
   );
   return {
     ...actual,
-    loadState: vi.fn(async () => ({ version: 3, archived: [], mcpArchived: [] })),
+    loadState: vi.fn(async () => ({ version: 4, archived: [], mcpArchived: [], linked: [] })),
     saveState: vi.fn(async () => {}),
   };
 });

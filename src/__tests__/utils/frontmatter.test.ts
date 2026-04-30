@@ -17,4 +17,17 @@ Body here
     expect(frontmatter.disableModelInvocation).toBe(true);
     expect(body.trim()).toBe("Body here");
   });
+
+  it("supports i18n description map", () => {
+    const raw = `---
+name: my-skill
+description:
+  zh: 你好
+  en: Hello
+---
+`;
+    const { frontmatter } = parseSkillMarkdown(raw);
+    expect(frontmatter.description).toBe("你好");
+    expect(frontmatter.descriptionI18n).toEqual({ zh: "你好", en: "Hello" });
+  });
 });

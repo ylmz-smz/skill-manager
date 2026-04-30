@@ -12,8 +12,22 @@ vi.mock("node:fs/promises", async () => {
       if (norm.endsWith("/.config/skill-manager/config.yaml")) {
         return `version: 1\nscan:\n  extraAgentRoots:\n    - ~/x/agents\nmcp:\n  readOnly: true\n`;
       }
+      if (norm.endsWith("/.config/skill-manager/config.json")) {
+        return JSON.stringify(
+          { version: 1, scan: { extraSkillRoots: ["~/x/skills-json"] }, mcp: { readOnly: true } },
+          null,
+          2,
+        );
+      }
       if (norm.endsWith("/proj/skill-manager.yaml")) {
         return `version: 1\nscan:\n  extraAgentRoots:\n    - /abs/agents\nmcp:\n  readOnly: false\n`;
+      }
+      if (norm.endsWith("/proj/skill-manager.json")) {
+        return JSON.stringify(
+          { version: 1, defaults: { strategy: "managed" }, mcp: { readOnly: false } },
+          null,
+          2,
+        );
       }
       throw new Error("ENOENT");
     }),
@@ -30,7 +44,9 @@ vi.mock("../../utils/fs.js", async () => {
       const norm = p.replace(/\\/g, "/");
       return (
         norm.endsWith("/.config/skill-manager/config.yaml") ||
+        norm.endsWith("/.config/skill-manager/config.json") ||
         norm.endsWith("/proj/skill-manager.yaml")
+        || norm.endsWith("/proj/skill-manager.json")
       );
     }),
   };
@@ -39,10 +55,12 @@ vi.mock("../../utils/fs.js", async () => {
 describe("loadConfig", () => {
   it("merges global + project and expands ~", async () => {
     const { config, sources } = await loadConfig({ homedir: "/home", projectDir: "/proj" });
-    expect(sources).toHaveLength(2);
+    expect(sources).toHaveLength(4);
     expect(config.scan.extraAgentRoots).toContain("/home/x/agents");
     expect(config.scan.extraAgentRoots).toContain("/abs/agents");
+    expect(config.scan.extraSkillRoots).toContain("/home/x/skills-json");
     expect(config.mcp.readOnly).toBe(false); // project overrides
+    expect(config.defaults.strategy).toBe("managed");
   });
 });
 

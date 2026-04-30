@@ -3,9 +3,11 @@ import { dirname } from "node:path";
 import type { ToolId } from "../types.js";
 import { statePath } from "../utils/paths.js";
 
-export const STATE_VERSION = 3 as const;
+export const STATE_VERSION = 4 as const;
 
 export type ResourceKind = "skill" | "subagent";
+
+export type LinkedResourceKind = ResourceKind;
 
 export interface ArchivedEntry {
   tool: ToolId;
@@ -16,14 +18,26 @@ export interface ArchivedEntry {
   resourceKind: ResourceKind;
 }
 
+export interface LinkedEntry {
+  tool: ToolId;
+  id: string;
+  resourceKind: LinkedResourceKind;
+  /** Tool-visible path that will be a symlink when enabled */
+  linkPath: string;
+  /** Canonical path in unified directory */
+  managedPath: string;
+  linkedAt: string;
+}
+
 export interface StateFile {
   version: typeof STATE_VERSION;
   archived: ArchivedEntry[];
   mcpArchived: McpArchivedEntry[];
+  linked: LinkedEntry[];
 }
 
 export function emptyState(): StateFile {
-  return { version: STATE_VERSION, archived: [], mcpArchived: [] };
+  return { version: STATE_VERSION, archived: [], mcpArchived: [], linked: [] };
 }
 
 type StateV1 = {
@@ -40,6 +54,12 @@ type StateV1 = {
 type StateV2 = {
   version: 2;
   archived: ArchivedEntry[];
+};
+
+type StateV3 = {
+  version: 3;
+  archived: ArchivedEntry[];
+  mcpArchived?: McpArchivedEntry[];
 };
 
 export interface McpArchivedEntry {
@@ -73,6 +93,7 @@ export async function loadState(homedir: string): Promise<StateFile> {
           resourceKind: "skill",
         })),
         mcpArchived: [],
+        linked: [],
       };
     }
 
@@ -100,14 +121,71 @@ export async function loadState(homedir: string): Promise<StateFile> {
           resourceKind: rk === "subagent" ? "subagent" : "skill",
         });
       }
-      return { version: STATE_VERSION, archived: normalizedArchived, mcpArchived: [] };
+      return { version: STATE_VERSION, archived: normalizedArchived, mcpArchived: [], linked: [] };
+    }
+
+    if (version === 3) {
+      const v3 = j as StateV3;
+      const normalized: ArchivedEntry[] = [];
+      for (const a of v3.archived ?? []) {
+        if (!a || typeof a !== "object") continue;
+        if (
+          typeof (a as any).tool !== "string" ||
+          typeof (a as any).id !== "string" ||
+          typeof (a as any).originalPath !== "string" ||
+          typeof (a as any).archivePath !== "string" ||
+          typeof (a as any).archivedAt !== "string"
+        ) {
+          continue;
+        }
+        const rk = (a as { resourceKind?: unknown }).resourceKind;
+        normalized.push({
+          tool: (a as any).tool as ToolId,
+          id: (a as any).id,
+          originalPath: (a as any).originalPath,
+          archivePath: (a as any).archivePath,
+          archivedAt: (a as any).archivedAt,
+          resourceKind: rk === "subagent" ? "subagent" : "skill",
+        });
+      }
+      const mcpArchivedRaw = (v3 as { mcpArchived?: unknown }).mcpArchived;
+      const mcpArchived: McpArchivedEntry[] = [];
+      if (Array.isArray(mcpArchivedRaw)) {
+        for (const e of mcpArchivedRaw) {
+          if (!e || typeof e !== "object") continue;
+          const tool = (e as { tool?: unknown }).tool;
+          const id = (e as { id?: unknown }).id;
+          const configPath = (e as { configPath?: unknown }).configPath;
+          const sourceKind = (e as { sourceKind?: unknown }).sourceKind;
+          const archivedAt = (e as { archivedAt?: unknown }).archivedAt;
+          const server = (e as { server?: unknown }).server;
+          if (
+            typeof tool !== "string" ||
+            typeof id !== "string" ||
+            typeof configPath !== "string" ||
+            (sourceKind !== "user-global" && sourceKind !== "project") ||
+            typeof archivedAt !== "string"
+          ) {
+            continue;
+          }
+          mcpArchived.push({
+            tool: tool as ToolId,
+            id,
+            configPath,
+            sourceKind,
+            archivedAt,
+            server,
+          });
+        }
+      }
+      return { version: STATE_VERSION, archived: normalized, mcpArchived, linked: [] };
     }
 
     if (version !== STATE_VERSION) return emptyState();
 
-    const v3 = j as StateFile;
+    const v4 = j as StateFile;
     const normalized: ArchivedEntry[] = [];
-    for (const a of v3.archived) {
+    for (const a of v4.archived) {
       if (!a || typeof a !== "object") continue;
       if (
         typeof a.tool !== "string" ||
@@ -128,7 +206,7 @@ export async function loadState(homedir: string): Promise<StateFile> {
         resourceKind: rk === "subagent" ? "subagent" : "skill",
       });
     }
-    const mcpArchivedRaw = (v3 as { mcpArchived?: unknown }).mcpArchived;
+    const mcpArchivedRaw = (v4 as { mcpArchived?: unknown }).mcpArchived;
     const mcpArchived: McpArchivedEntry[] = [];
     if (Array.isArray(mcpArchivedRaw)) {
       for (const e of mcpArchivedRaw) {
@@ -158,7 +236,38 @@ export async function loadState(homedir: string): Promise<StateFile> {
         });
       }
     }
-    return { version: STATE_VERSION, archived: normalized, mcpArchived };
+    const linkedRaw = (v4 as { linked?: unknown }).linked;
+    const linked: LinkedEntry[] = [];
+    if (Array.isArray(linkedRaw)) {
+      for (const e of linkedRaw) {
+        if (!e || typeof e !== "object") continue;
+        const tool = (e as { tool?: unknown }).tool;
+        const id = (e as { id?: unknown }).id;
+        const resourceKind = (e as { resourceKind?: unknown }).resourceKind;
+        const linkPath = (e as { linkPath?: unknown }).linkPath;
+        const managedPath = (e as { managedPath?: unknown }).managedPath;
+        const linkedAt = (e as { linkedAt?: unknown }).linkedAt;
+        if (
+          typeof tool !== "string" ||
+          typeof id !== "string" ||
+          (resourceKind !== "skill" && resourceKind !== "subagent") ||
+          typeof linkPath !== "string" ||
+          typeof managedPath !== "string" ||
+          typeof linkedAt !== "string"
+        ) {
+          continue;
+        }
+        linked.push({
+          tool: tool as ToolId,
+          id,
+          resourceKind,
+          linkPath,
+          managedPath,
+          linkedAt,
+        });
+      }
+    }
+    return { version: STATE_VERSION, archived: normalized, mcpArchived, linked };
   } catch {
     return emptyState();
   }
@@ -216,6 +325,36 @@ export function removeArchived(
           a.id === id &&
           a.resourceKind === resourceKind
         ),
+    ),
+  };
+}
+
+export function findLinkedById(
+  state: StateFile,
+  tool: ToolId,
+  id: string,
+  resourceKind: LinkedResourceKind,
+): LinkedEntry | undefined {
+  return state.linked.find((e) => e.tool === tool && e.id === id && e.resourceKind === resourceKind);
+}
+
+export function upsertLinked(state: StateFile, entry: LinkedEntry): StateFile {
+  const rest = state.linked.filter(
+    (e) => !(e.tool === entry.tool && e.id === entry.id && e.resourceKind === entry.resourceKind),
+  );
+  return { ...state, linked: [...rest, entry] };
+}
+
+export function removeLinked(
+  state: StateFile,
+  tool: ToolId,
+  id: string,
+  resourceKind: LinkedResourceKind,
+): StateFile {
+  return {
+    ...state,
+    linked: state.linked.filter(
+      (e) => !(e.tool === tool && e.id === id && e.resourceKind === resourceKind),
     ),
   };
 }

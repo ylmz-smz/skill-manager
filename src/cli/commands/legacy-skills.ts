@@ -30,7 +30,7 @@ export function registerLegacySkillsCommands(program: Command): void {
       "-i, --interactive",
       "Terminal UI: pick a skill then confirm enable/disable (requires TTY)",
     )
-    .option("--strategy <s>", "With --interactive: auto | native | managed", "auto")
+    .option("--strategy <s>", "With --interactive: auto | native | managed | symlink", "auto")
     .option("--global", "With --interactive + Claude: write user ~/.claude/settings.local.json")
     .option("--dry-run", "With --interactive: do not write files")
     .action(async (toolArg: string | undefined, opts: any) => {
@@ -64,6 +64,7 @@ export function registerLegacySkillsCommands(program: Command): void {
           strategy: parseStrategy(opts.strategy),
           dryRun: Boolean(opts.dryRun),
           globalSettings: Boolean(opts.global),
+          unifiedRoot: config.unified?.roots?.skills,
           termWidth,
         });
         return;
@@ -78,7 +79,7 @@ export function registerLegacySkillsCommands(program: Command): void {
     .argument("<skill-id>", "Skill id from list")
     .option("--project <dir>", "Project root")
     .option("--global", "Use user-level Claude settings (default: project when --project set)")
-    .option("--strategy <s>", "auto | native | managed", "auto")
+    .option("--strategy <s>", "auto | native | managed | symlink", "auto")
     .option("--path <dir>", "Exact skill directory if id is ambiguous")
     .option("--dry-run", "Print actions without writing")
     .option("--force", "Confirm disable")
@@ -107,6 +108,7 @@ export function registerLegacySkillsCommands(program: Command): void {
         strategy: parseStrategy(opts.strategy),
         dryRun: Boolean(opts.dryRun),
         globalSettings: Boolean(opts.global),
+        unifiedRoot: config.unified?.roots?.skills,
       });
       process.stdout.write(opts.dryRun ? "[dry-run] disable complete\n" : "disabled\n");
     });
@@ -118,7 +120,7 @@ export function registerLegacySkillsCommands(program: Command): void {
     .argument("<skill-id>", "Skill id from list")
     .option("--project <dir>", "Project root")
     .option("--global", "Use user-level Claude settings")
-    .option("--strategy <s>", "auto | native | managed", "auto")
+    .option("--strategy <s>", "auto | native | managed | symlink", "auto")
     .option("--path <dir>", "Exact skill directory if id is ambiguous")
     .option("--dry-run", "Print actions without writing")
     .action(async (skillId: string, opts: any) => {
@@ -145,6 +147,7 @@ export function registerLegacySkillsCommands(program: Command): void {
         strategy: parseStrategy(opts.strategy),
         dryRun: Boolean(opts.dryRun),
         globalSettings: Boolean(opts.global),
+        unifiedRoot: config.unified?.roots?.skills,
       });
       process.stdout.write(opts.dryRun ? "[dry-run] enable complete\n" : "enabled\n");
     });

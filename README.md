@@ -31,11 +31,12 @@ Design trade-offs: Claude prefers modifying **`enabledPlugins`** and **`disable-
 | Multi-source scan | Claude user/project skills, marketplace `SKILL.md`, Cursor user/project skills, built-in manifest (read-only), `~/.agents/skills` recursive |
 | Subagents scan | Cursor/Claude/Codex subagents under `~/.{cursor,claude,codex}/agents/` and `<project>/.{cursor,claude,codex}/agents/` |
 | MCP scan | Cursor: `~/.cursor/mcp.json` + `<project>/.cursor/mcp.json`; Claude Code: `~/.claude.json` + `<project>/.mcp.json` (project overrides) |
+| Local UI dashboard | `skills-manager ui` starts a local web dashboard (no secrets shown). Config tab supports **Form ⇄ JSON** editing + save |
 | Tabular listing | Grouped by tool; columns: checkbox `[x]`/`[ ]`, `skill-name`, `skill-desc`, `skill-path`, `skill-status` (enabled/disabled); paths abbreviated to `~/…` |
 | Interactive listing | `-i`: prints **full table** first; **selection only includes CLI-toggleable items** (built-ins omitted with notice); **current row** highlighted with `❯`, bottom summary shows **enabled/disabled and pending action** |
 | Imperative toggle | `enable` / `disable` with `--strategy`, `--path`, `--dry-run`, `--force` (for disable) |
 | Health check | `doctor`: validates state file, archive paths, and Claude settings readability |
-| Config files | Optional global & project YAML config for extra scan roots and MCP write guard |
+| Config files | Optional global & project YAML/JSON config for extra scan roots, unified management roots, and MCP write guard |
 
 ## Installation & Usage
 
@@ -70,6 +71,15 @@ pnpm run skills-manager -- list --json
 
 Global link (optional): run `pnpm run build` then `pnpm link --global` in this repo.
 
+## UI dashboard
+
+Start a local dashboard (read-only by default; no secrets shown):
+
+```bash
+skills-manager ui --port 8787
+skills-manager ui --port 8787 --project .
+```
+
 ## Commands
 
 | Command | Description |
@@ -79,14 +89,17 @@ Global link (optional): run `pnpm run build` then `pnpm link --global` in this r
 | `agents` | List and toggle subagents (`agents enable/disable`) |
 | `mcp` | List and toggle MCP servers (`mcp enable/disable`) — guarded by config + `--apply` |
 | `config` | Inspect/validate config files (`config path|validate`) |
+| `ui` | Start local web dashboard (`ui --port 8787 --project .`) |
 | `disable` | Disable a skill (requires `--force` or env `SKILLS_MANAGER_YES=1`; interactive mode confirms verbally) |
 | `enable` | Enable a skill |
 | `doctor` | Check `~/.config/skill-manager/state.json`, archive directories, and Claude settings |
 
 ### Config files (optional)
 
-- **Global**: `~/.config/skill-manager/config.yaml`
-- **Project**: `<project>/skill-manager.yaml`
+Config supports **YAML or JSON**:
+
+- **Global**: `~/.config/skill-manager/config.yaml` or `~/.config/skill-manager/config.json`
+- **Project**: `<project>/skill-manager.yaml` or `<project>/skill-manager.json`
 
 Example:
 
@@ -99,6 +112,40 @@ scan:
     - ~/my-agents
 mcp:
   readOnly: true
+```
+
+### Unified management roots + symlink toggle (optional)
+
+You can centrally manage selected Skills / Subagents / MCP servers, and toggle them via **symlinks** (mount/unmount).
+
+```yaml
+version: 1
+defaults:
+  strategy: symlink
+unified:
+  mode: symlink
+  roots:
+    skills: ~/unified/skills
+    agents: ~/unified/agents
+    mcp: ~/unified/mcp
+  select:
+    # stored as array: "<tool>:<id>"
+    skills:
+      - cursor:my-skill
+      - claude-code:my-claude-skill
+    agents:
+      - cursor:verifier
+    mcp:
+      - cursor:github
+      - claude-code:my-server
+```
+
+MCP unified directory layout (per-server):
+
+```text
+<unified.mcp>/
+  servers/<tool>/<id>.json     # canonical server object
+  enabled/<tool>/<id>.json     # symlink -> servers/<tool>/<id>.json (exists = enabled)
 ```
 
 Commands:
@@ -151,12 +198,18 @@ skills-manager mcp disable --tool cursor github --apply
 skills-manager mcp enable --tool cursor github --apply
 ```
 
+Symlink-based MCP toggle (per-server):
+
+- When `unified.roots.mcp` is set and `<tool>:<id>` is listed under `unified.select.mcp`,
+  `skills-manager mcp enable/disable` toggles it via the unified directory + enabled symlink,
+  then syncs the generated set back into the tool MCP config JSON.
+
 **Common `list` options**
 
 - **Filter by tool**: `--tool` / **`-t`**, or equivalent **positional argument** `list [toolArg]`. Examples: `list cursor`, `list cc` (Claude), `list a` (agents), `list all` or omit for all. Conflicting `--tool` and positional arg raises an error.
 - `--project <dir>` — include project-level `.claude/skills`, `.cursor/skills`
 - `-i, --interactive` — requires **TTY**; prints formatted list, then pick a skill and confirm **enable** or **disable**
-- `--strategy auto|native|managed` — only affects subsequent toggle when used with `-i` (default: `auto`)
+- `--strategy auto|native|managed|symlink` — only affects subsequent toggle when used with `-i` (default: `auto`)
 - `--global` — with Claude + `-i`: write to user-level `~/.claude/settings.local.json`
 - `--dry-run` — with `-i`: simulate without writing to disk
 
@@ -173,6 +226,7 @@ Non-interactive `enable`/`disable` also support: `--dry-run`, `--strategy`, `--p
 | **Agents** | Same as Cursor custom skills | **managed** | Archived under `archive/agents/`. |
 
 To only modify frontmatter **without** moving directories, use **`--strategy native`** for Cursor/Agents.
+To use symlink mount/unmount with centralized roots, use **`--strategy symlink`** and configure `unified.*`.
 
 ## Scan Paths Summary
 
@@ -188,6 +242,7 @@ Managed disables are recorded in **`~/.config/skill-manager/state.json`**:
 
 - Skills/Subagents: archive metadata (reversible move)
 - MCP: stashed `mcpServers[id]` payload for reversible restore
+ - Symlink mode: symlink-managed entries may be recorded so disabled items remain visible
 
 Use **`doctor`** for consistency checks.
 

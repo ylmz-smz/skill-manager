@@ -23,6 +23,11 @@ export interface SkillRecord {
   id: string;
   displayName: string;
   description: string;
+  /** Optional localized descriptions (from frontmatter `description: {zh,en}`) */
+  descriptionI18n?: {
+    zh?: string;
+    en?: string;
+  };
   sourceKind: SourceKind;
   /** Directory containing SKILL.md, or synthetic path for builtins */
   path: string;
@@ -38,7 +43,7 @@ export interface SkillRecord {
   notes?: string;
 }
 
-export type ControlStrategy = "auto" | "native" | "managed";
+export type ControlStrategy = "auto" | "native" | "managed" | "symlink";
 
 export interface CliContext {
   homedir: string;

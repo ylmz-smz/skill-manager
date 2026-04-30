@@ -30,6 +30,7 @@ export async function runInteractiveList(opts: {
   strategy: ControlStrategy;
   dryRun: boolean;
   globalSettings: boolean;
+  unifiedRoot?: string;
   termWidth: number;
 }): Promise<void> {
   assertTTY();
@@ -40,6 +41,7 @@ export async function runInteractiveList(opts: {
     strategy,
     dryRun,
     globalSettings,
+    unifiedRoot,
     termWidth,
   } = opts;
 
@@ -123,6 +125,7 @@ export async function runInteractiveList(opts: {
       strategy,
       dryRun,
       globalSettings,
+      unifiedRoot,
     });
     process.stdout.write(
       dryRun ? "[dry-run] 已模拟关闭。\n" : "已关闭。\n",
@@ -135,6 +138,7 @@ export async function runInteractiveList(opts: {
       strategy,
       dryRun,
       globalSettings,
+      unifiedRoot,
     });
     process.stdout.write(
       dryRun ? "[dry-run] 已模拟开启。\n" : "已开启。\n",

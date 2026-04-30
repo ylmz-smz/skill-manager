@@ -32,9 +32,10 @@ vi.mock("node:fs/promises", async () => {
 describe("state migration", () => {
   it("loads v1 state and upgrades archived entries to resourceKind=skill", async () => {
     const st = await loadState("/home");
-    expect(st.version).toBe(3);
+    expect(st.version).toBe(4);
     expect(st.archived[0]?.resourceKind).toBe("skill");
     expect(st.mcpArchived).toEqual([]);
+    expect(st.linked).toEqual([]);
   });
 });
 

@@ -19,7 +19,7 @@ describe("mergeDiskAndArchived", () => {
       },
     ];
     const state: StateFile = {
-      version: 3,
+      version: 4,
       archived: [
         {
           tool: "cursor",
@@ -31,6 +31,7 @@ describe("mergeDiskAndArchived", () => {
         },
       ],
       mcpArchived: [],
+      linked: [],
     };
     const out = mergeDiskAndArchived(disk, state, new Set(["cursor"]));
     expect(out.find((r) => r.id === "a")?.path).toBe("/home/.cursor/skills/a");
@@ -38,7 +39,7 @@ describe("mergeDiskAndArchived", () => {
 
   it("keeps archived-only skills when missing on disk", () => {
     const state: StateFile = {
-      version: 3,
+      version: 4,
       archived: [
         {
           tool: "agents",
@@ -50,6 +51,7 @@ describe("mergeDiskAndArchived", () => {
         },
       ],
       mcpArchived: [],
+      linked: [],
     };
     const out = mergeDiskAndArchived([], state, new Set(["agents"]));
     expect(out).toHaveLength(1);

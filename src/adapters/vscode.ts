@@ -20,6 +20,7 @@ async function skillRecordFromDir(
     id,
     displayName: id,
     description: frontmatter.description ?? "",
+    descriptionI18n: frontmatter.descriptionI18n,
     sourceKind,
     path: skillDir,
     invocation: { disableModelInvocation: disable },

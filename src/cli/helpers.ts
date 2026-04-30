@@ -30,8 +30,8 @@ export function parseTool(v: string): ToolId | "all" {
 }
 
 export function parseStrategy(v: string): ControlStrategy {
-  if (v === "auto" || v === "native" || v === "managed") return v;
-  throw new Error(`--strategy must be auto|native|managed (got ${JSON.stringify(v)})`);
+  if (v === "auto" || v === "native" || v === "managed" || v === "symlink") return v;
+  throw new Error(`--strategy must be auto|native|managed|symlink (got ${JSON.stringify(v)})`);
 }
 
 export function parseSubagentTool(v: string): SubagentToolId | "all" {

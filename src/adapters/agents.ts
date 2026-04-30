@@ -30,6 +30,7 @@ export async function discoverAgentsSkills(
         id,
         displayName: frontmatter.name?.trim() || dirName,
         description: frontmatter.description ?? "",
+        descriptionI18n: frontmatter.descriptionI18n,
         sourceKind: "user-global",
         path: dirNormalized,
         invocation: { disableModelInvocation: disable },

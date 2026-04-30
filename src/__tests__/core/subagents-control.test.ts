@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => {
     return { isFile: () => true };
   });
   const readFileMock = vi.fn(async () =>
-    JSON.stringify({ version: 3, archived: [], mcpArchived: [] }, null, 2),
+    JSON.stringify({ version: 4, archived: [], mcpArchived: [], linked: [] }, null, 2),
   );
   return { renameMock, writeFileMock, mkdirMock, statMock, readFileMock };
 });
@@ -62,7 +62,7 @@ describe("subagents enable/disable (managed archive)", () => {
     mocks.readFileMock.mockImplementationOnce(async () =>
       JSON.stringify(
         {
-          version: 3,
+          version: 4,
           archived: [
             {
               tool: "cursor",
@@ -74,6 +74,7 @@ describe("subagents enable/disable (managed archive)", () => {
             },
           ],
           mcpArchived: [],
+          linked: [],
         },
         null,
         2,

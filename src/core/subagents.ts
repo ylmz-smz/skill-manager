@@ -1,6 +1,6 @@
 import type { SubagentRecord, SubagentToolId } from "../types.js";
 import { discoverSubagents } from "../adapters/subagents.js";
-import type { ArchivedEntry, StateFile } from "./state.js";
+import type { ArchivedEntry, LinkedEntry, StateFile } from "./state.js";
 
 export function sortSubagents(records: SubagentRecord[]): SubagentRecord[] {
   return [...records].sort((a, b) => {
@@ -24,6 +24,20 @@ function archivedToSubagentRecord(entry: ArchivedEntry): SubagentRecord {
   };
 }
 
+function linkedToSubagentRecord(entry: LinkedEntry): SubagentRecord {
+  return {
+    tool: entry.tool as SubagentToolId,
+    id: entry.id,
+    displayName: entry.id,
+    description: "Managed by skills-manager (symlink toggle).",
+    sourceKind: "user-global",
+    path: entry.managedPath,
+    enabled: false,
+    enabledSemantic: "managed",
+    notes: `Link path: ${entry.linkPath}`,
+  };
+}
+
 export function mergeDiskAndArchivedSubagents(
   disk: SubagentRecord[],
   state: StateFile,
@@ -34,9 +48,18 @@ export function mergeDiskAndArchivedSubagents(
       a.resourceKind === "subagent" &&
       tools.has(a.tool as SubagentToolId),
   );
+  const linked = (state.linked ?? []).filter(
+    (e) =>
+      e.resourceKind === "subagent" &&
+      tools.has(e.tool as SubagentToolId),
+  );
   const byKey = new Map<string, SubagentRecord>();
   for (const a of archived) {
     const r = archivedToSubagentRecord(a);
+    byKey.set(`${r.tool}:${r.id}`, r);
+  }
+  for (const e of linked) {
+    const r = linkedToSubagentRecord(e);
     byKey.set(`${r.tool}:${r.id}`, r);
   }
   for (const r of disk) {
