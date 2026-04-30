@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { dump as yamlDump, load as yamlLoad } from "js-yaml";
+import * as yaml from "js-yaml";
 import { configRoot } from "../utils/paths.js";
 import { pathExists } from "../utils/fs.js";
 import type { ControlStrategy } from "../types.js";
@@ -160,7 +160,7 @@ export function validateConfigShape(raw: unknown): SkillManagerConfig {
 async function readYamlIfExists(path: string): Promise<unknown | undefined> {
   if (!(await pathExists(path))) return undefined;
   const raw = await readFile(path, "utf8");
-  return yamlLoad(raw);
+  return yaml.load(raw);
 }
 
 async function readJsonIfExists(path: string): Promise<unknown | undefined> {
@@ -314,7 +314,7 @@ export async function detectConfigFiles(opts: {
 
 function configToYamlString(c: SkillManagerConfig): string {
   // Keep output minimal and stable enough for humans.
-  return yamlDump(c, {
+  return yaml.dump(c, {
     lineWidth: 120,
     noRefs: true,
     sortKeys: false,
@@ -335,17 +335,16 @@ export async function saveConfigFile(opts: {
     return detected.project.format ?? "yaml";
   };
   const format = opts.format ?? preferExisting(opts.scope);
-  if (opts.scope === "project" && !opts.projectDir) {
-    throw new Error("projectDir is required when saving project config");
-  }
+  const projectDir = opts.projectDir;
+  if (opts.scope === "project" && !projectDir) throw new Error("projectDir is required when saving project config");
   const path =
     opts.scope === "global"
       ? format === "json"
         ? detected.global.jsonPath
         : detected.global.yamlPath
       : format === "json"
-        ? projectConfigJsonPath(opts.projectDir)
-        : projectConfigPath(opts.projectDir);
+        ? projectConfigJsonPath(projectDir!)
+        : projectConfigPath(projectDir!);
 
   const body = format === "json" ? JSON.stringify(opts.config, null, 2).trimEnd() + "\n" : configToYamlString(opts.config);
   await mkdir(dirname(path), { recursive: true });
