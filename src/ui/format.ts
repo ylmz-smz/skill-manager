@@ -1,6 +1,15 @@
 import type { SkillRecord, SourceKind, ToolId } from "../types.js";
+import type { SubagentRecord, SubagentToolId } from "../types.js";
+import type { McpServerRecord, McpToolId } from "../types.js";
 
-const TOOL_ORDER: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents"];
+const TOOL_ORDER: ToolId[] = [
+  "claude-code",
+  "cursor",
+  "vscode",
+  "codebuddy",
+  "agents",
+  "codex",
+];
 
 const TOOL_TITLE: Record<ToolId, string> = {
   "claude-code": "Claude Code",
@@ -8,6 +17,7 @@ const TOOL_TITLE: Record<ToolId, string> = {
   vscode: "VSCode（GitHub Copilot）",
   codebuddy: "CodeBuddy（腾讯）",
   agents: "Agents（~/.agents/skills）",
+  codex: "Codex",
 };
 
 const SOURCE_LABEL: Record<SourceKind, string> = {
@@ -40,6 +50,26 @@ export function sourceKindLabel(k: SourceKind): string {
 
 export function toolTitle(tool: ToolId): string {
   return TOOL_TITLE[tool];
+}
+
+const SUBAGENT_TOOL_ORDER: SubagentToolId[] = ["cursor", "claude-code", "codex"];
+
+const SUBAGENT_TOOL_TITLE: Record<SubagentToolId, string> = {
+  cursor: "Cursor",
+  "claude-code": "Claude Code",
+  codex: "Codex（.codex/agents）",
+};
+
+export const SUBAGENT_LIST_TABLE_HEADERS = [
+  "[ ]",
+  "agent-name",
+  "agent-desc",
+  "agent-path",
+  "agent-status",
+] as const;
+
+export function subagentToolTitle(tool: SubagentToolId): string {
+  return SUBAGENT_TOOL_TITLE[tool];
 }
 
 function truncate(s: string, max: number): string {
@@ -109,6 +139,18 @@ function skillToCells(
   return [checkCell(r.enabled), name, desc, path, status];
 }
 
+function subagentToCells(
+  r: SubagentRecord,
+  homedir: string,
+  descW: number,
+): string[] {
+  const name = r.id;
+  const desc = truncate(r.description?.trim() || "—", descW);
+  const path = shortenPath(r.path, homedir);
+  const status = r.enabled ? "enabled" : "disabled";
+  return [checkCell(r.enabled), name, desc, path, status];
+}
+
 /** 单行技能表格线（与总表列对齐）。 */
 export function formatSkillTableRow(
   r: SkillRecord,
@@ -117,6 +159,134 @@ export function formatSkillTableRow(
 ): string {
   const descW = widths[2]!;
   return formatTableDataRow(skillToCells(r, homedir, descW), widths);
+}
+
+export function formatSubagentTableRow(
+  r: SubagentRecord,
+  homedir: string,
+  widths: number[],
+): string {
+  const descW = widths[2]!;
+  return formatTableDataRow(subagentToCells(r, homedir, descW), widths);
+}
+
+export function formatSubagentListTable(
+  rows: SubagentRecord[],
+  homedir: string,
+  termWidth: number,
+): string {
+  const widths = computeListTableWidths(termWidth);
+  const header = formatTableDataRow([...SUBAGENT_LIST_TABLE_HEADERS], widths);
+  const top = borderLine(widths, "┌┬┐");
+  const mid = borderLine(widths, "├┼┤");
+  const bot = borderLine(widths, "└┴┘");
+
+  const byTool = new Map<SubagentToolId, SubagentRecord[]>();
+  for (const t of SUBAGENT_TOOL_ORDER) byTool.set(t, []);
+  for (const r of rows) {
+    const arr = byTool.get(r.tool) ?? [];
+    arr.push(r);
+    byTool.set(r.tool, arr);
+  }
+
+  const out: string[] = [];
+  for (const t of SUBAGENT_TOOL_ORDER) {
+    const items = byTool.get(t) ?? [];
+    if (items.length === 0) continue;
+    out.push(`${subagentToolTitle(t)} (${items.length})`);
+    out.push(top);
+    out.push(header);
+    out.push(mid);
+    for (const r of items) out.push(formatSubagentTableRow(r, homedir, widths));
+    out.push(bot);
+    out.push("");
+  }
+  return `${out.join("\n")}\n`;
+}
+
+// ---- MCP tables ----
+
+const MCP_TOOL_ORDER: McpToolId[] = ["cursor", "claude-code"];
+const MCP_TOOL_TITLE: Record<McpToolId, string> = {
+  cursor: "Cursor",
+  "claude-code": "Claude Code",
+};
+
+export const MCP_LIST_TABLE_HEADERS = [
+  "id",
+  "transport",
+  "command/url",
+  "config-path",
+  "env-keys",
+] as const;
+
+function mcpToolTitle(t: McpToolId): string {
+  return MCP_TOOL_TITLE[t];
+}
+
+function computeMcpTableWidths(termWidth: number): number[] {
+  const innerBudget = Math.max(72, Math.min(termWidth, 160) - 2);
+  const idW = Math.max(10, Math.min(28, Math.floor(innerBudget * 0.18)));
+  const transportW = 10;
+  const cmdW = Math.max(18, Math.min(52, Math.floor(innerBudget * 0.34)));
+  const pathW = Math.max(18, Math.min(52, Math.floor(innerBudget * 0.28)));
+  const envW = Math.max(10, innerBudget - idW - transportW - cmdW - pathW - 12);
+  return [idW, transportW, cmdW, pathW, envW];
+}
+
+function mcpToCells(r: McpServerRecord, homedir: string, envW: number): string[] {
+  const cmdOrUrl =
+    r.transport === "http"
+      ? r.url ?? "—"
+      : r.command
+        ? [r.command, ...(r.args ?? [])].join(" ")
+        : "—";
+  const env = r.envKeys.length ? r.envKeys.join(", ") : "—";
+  return [
+    r.id,
+    r.transport,
+    cmdOrUrl,
+    shortenPath(r.path, homedir),
+    truncate(env, envW),
+  ];
+}
+
+export function formatMcpListTable(
+  rows: McpServerRecord[],
+  homedir: string,
+  termWidth: number,
+): string {
+  const widths = computeMcpTableWidths(termWidth);
+  const header = formatTableDataRow([...MCP_LIST_TABLE_HEADERS], widths);
+  const top = borderLine(widths, "┌┬┐");
+  const mid = borderLine(widths, "├┼┤");
+  const bot = borderLine(widths, "└┴┘");
+
+  const byTool = new Map<McpToolId, McpServerRecord[]>();
+  for (const t of MCP_TOOL_ORDER) byTool.set(t, []);
+  for (const r of rows) {
+    const arr = byTool.get(r.tool) ?? [];
+    arr.push(r);
+    byTool.set(r.tool, arr);
+  }
+
+  const out: string[] = [];
+  for (const t of MCP_TOOL_ORDER) {
+    const items = byTool.get(t) ?? [];
+    if (items.length === 0) continue;
+    out.push(`${mcpToolTitle(t)} (${items.length})`);
+    out.push(top);
+    out.push(header);
+    out.push(mid);
+    const envW = widths[4]!;
+    for (const r of items) {
+      out.push(formatTableDataRow(mcpToCells(r, homedir, envW), widths));
+    }
+    out.push(bot);
+    out.push("");
+  }
+
+  return `${out.join("\n")}\n`;
 }
 
 /** 交互选择前打印的表头区（顶框 + 表头 + 中缝）。 */

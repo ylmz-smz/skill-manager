@@ -24,6 +24,15 @@ export function archiveDirFor(h: string, tool: string, id: string): string {
   return join(archiveRoot(h), tool, slugId(id));
 }
 
+export function archiveDirForKind(
+  h: string,
+  resourceKind: "skills" | "subagents",
+  tool: string,
+  id: string,
+): string {
+  return join(archiveRoot(h), resourceKind, tool, slugId(id));
+}
+
 export function slugId(id: string): string {
   return id.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 240) || "_empty";
 }

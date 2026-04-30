@@ -19,7 +19,7 @@ describe("mergeDiskAndArchived", () => {
       },
     ];
     const state: StateFile = {
-      version: 1,
+      version: 2,
       archived: [
         {
           tool: "cursor",
@@ -27,6 +27,7 @@ describe("mergeDiskAndArchived", () => {
           originalPath: "/home/.cursor/skills/a",
           archivePath: "/cfg/archive/cursor/a",
           archivedAt: "t",
+          resourceKind: "skill",
         },
       ],
     };
@@ -36,7 +37,7 @@ describe("mergeDiskAndArchived", () => {
 
   it("keeps archived-only skills when missing on disk", () => {
     const state: StateFile = {
-      version: 1,
+      version: 2,
       archived: [
         {
           tool: "agents",
@@ -44,6 +45,7 @@ describe("mergeDiskAndArchived", () => {
           originalPath: "/h/.agents/skills/gone",
           archivePath: "/cfg/archive/agents/gone",
           archivedAt: "t",
+          resourceKind: "skill",
         },
       ],
     };

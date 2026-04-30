@@ -27,7 +27,9 @@ export function mergeDiskAndArchived(
   state: StateFile,
   tools: Set<ToolId>,
 ): SkillRecord[] {
-  const archived = state.archived.filter((a) => tools.has(a.tool));
+  const archived = state.archived.filter(
+    (a) => a.resourceKind === "skill" && tools.has(a.tool),
+  );
   const byKey = new Map<string, SkillRecord>();
   for (const a of archived) {
     const r = archivedToRecords(a);
@@ -46,7 +48,7 @@ export async function listSkills(opts: {
   state: StateFile;
 }): Promise<SkillRecord[]> {
   const { homedir, projectDir, tool, state } = opts;
-  const ALL_TOOLS: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents"];
+  const ALL_TOOLS: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents", "codex"];
   const tools =
     tool === "all"
       ? new Set<ToolId>(ALL_TOOLS)

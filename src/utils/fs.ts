@@ -67,3 +67,29 @@ export async function findSkillMdUnder(
   }
   return out;
 }
+
+/** Recursive *.md discovery under root, max depth from root */
+export async function findMarkdownUnder(
+  root: string,
+  maxDepth: number,
+  depth = 0,
+): Promise<string[]> {
+  if (depth > maxDepth || !(await pathExists(root))) return [];
+  const out: string[] = [];
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  for (const e of entries) {
+    if (SKIP.has(e.name)) continue;
+    const full = join(root, e.name);
+    if ((e.isFile() || e.isSymbolicLink()) && /\.md$/i.test(e.name)) {
+      out.push(full);
+    } else if (await isEntryDir(e, full)) {
+      out.push(...(await findMarkdownUnder(full, maxDepth, depth + 1)));
+    }
+  }
+  return out;
+}

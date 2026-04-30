@@ -1,6 +1,6 @@
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { archiveDirFor } from "../utils/paths.js";
+import { archiveDirForKind } from "../utils/paths.js";
 import {
   atomicMove,
   findArchivedById,
@@ -80,10 +80,10 @@ export async function disableSkill(opts: {
       );
     }
     const state = await loadState(homedir);
-    if (findArchivedById(state, record.tool, record.id)) {
+    if (findArchivedById(state, record.tool, record.id, "skill")) {
       return;
     }
-    const dest = archiveDirFor(homedir, record.tool, record.id);
+    const dest = archiveDirForKind(homedir, "skills", record.tool, record.id);
     await mkdir(dirname(dest), { recursive: true });
     if (!dryRun) {
       try {
@@ -101,6 +101,7 @@ export async function disableSkill(opts: {
       originalPath: record.path,
       archivePath: dest,
       archivedAt: new Date().toISOString(),
+      resourceKind: "skill",
     };
     await atomicMove(record.path, dest, dryRun);
     await saveState(homedir, upsertArchived(state, entry), dryRun);
@@ -121,7 +122,7 @@ export async function enableSkill(opts: {
   const { homedir, projectDir, record, strategy, dryRun, globalSettings } =
     opts;
   const state = await loadState(homedir);
-  const archived = findArchivedById(state, record.tool, record.id);
+  const archived = findArchivedById(state, record.tool, record.id, "skill");
   const strat = inferStrategy(record, strategy);
 
   if (archived) {
@@ -141,7 +142,7 @@ export async function enableSkill(opts: {
     await atomicMove(archived.archivePath, archived.originalPath, dryRun);
     await saveState(
       homedir,
-      removeArchived(state, record.tool, record.id),
+      removeArchived(state, record.tool, record.id, "skill"),
       dryRun,
     );
     return;

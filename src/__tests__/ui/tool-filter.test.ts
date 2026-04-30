@@ -10,6 +10,8 @@ describe("parseListToolToken", () => {
     expect(parseListToolToken("C")).toBe("cursor");
     expect(parseListToolToken("cc")).toBe("claude-code");
     expect(parseListToolToken("a")).toBe("agents");
+    expect(parseListToolToken("codex")).toBe("codex");
+    expect(parseListToolToken("cx")).toBe("codex");
   });
 });
 
