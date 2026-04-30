@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   program
     .name("skills-manager")
     .description("Discover and enable/disable skills across Claude Code, Cursor, and ~/.agents/skills")
-    .version("0.3.0");
+    .version("0.3.1");
 
   registerSkillsCommands(program);
   registerAgentsCommands(program);
