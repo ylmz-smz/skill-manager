@@ -5,6 +5,13 @@ import { configRoot } from "../utils/paths.js";
 import { pathExists } from "../utils/fs.js";
 import type { ControlStrategy } from "../types.js";
 
+type YamlApi = {
+  load: (raw: string) => unknown;
+  dump: (v: unknown, opts?: Record<string, unknown>) => string;
+};
+
+const yamlApi = yaml as unknown as YamlApi;
+
 export interface SkillManagerConfig {
   version: 1;
   scan: {
@@ -160,7 +167,7 @@ export function validateConfigShape(raw: unknown): SkillManagerConfig {
 async function readYamlIfExists(path: string): Promise<unknown | undefined> {
   if (!(await pathExists(path))) return undefined;
   const raw = await readFile(path, "utf8");
-  return (yaml as any).load(raw);
+  return yamlApi.load(raw);
 }
 
 async function readJsonIfExists(path: string): Promise<unknown | undefined> {
@@ -314,7 +321,7 @@ export async function detectConfigFiles(opts: {
 
 function configToYamlString(c: SkillManagerConfig): string {
   // Keep output minimal and stable enough for humans.
-  return (yaml as any).dump(c, {
+  return yamlApi.dump(c, {
     lineWidth: 120,
     noRefs: true,
     sortKeys: false,
