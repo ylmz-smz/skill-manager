@@ -12,7 +12,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsx scripts/build-web.ts && tsc",
+    "build:web": "tsx scripts/build-web.ts",
     "prepublishOnly": "npm run build",
     "dev": "tsx src/cli.ts",
     "skills-manager": "node ./bin/skills-manager.mjs",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "jsdom": "^29.1.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^3.0.5"

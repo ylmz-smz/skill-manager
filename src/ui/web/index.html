@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>skills-manager</title>
+    <style>
+/* __STYLES__ */
+</style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">skills-manager</div>
+          <div class="subtitle" id="subtitle">本地面板 • 默认只读 • 不展示密钥</div>
+        </div>
+        <div class="controls">
+          <div class="pill">
+            <span class="muted" id="labelSearch">搜索</span>
+            <input id="q" placeholder="id / 描述 / 路径…" />
+          </div>
+          <div class="pill">
+            <span class="muted" id="labelTool">工具</span>
+            <select id="tool">
+              <option value="all">all</option>
+            </select>
+          </div>
+          <div class="pill">
+            <span class="muted" id="labelLang">语言</span>
+            <select id="lang">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="pill">
+            <span class="muted" id="labelDescMode">描述</span>
+            <select id="descMode">
+              <option value="auto">Auto</option>
+              <option value="both">双语</option>
+              <option value="raw">原始</option>
+            </select>
+          </div>
+          <button class="btn" id="refresh">刷新</button>
+        </div>
+      </div>
+
+      <div id="doctorBanner" class="doctorBanner" style="display:none">
+        <span class="doctorBannerLabel">Doctor</span>
+        <span id="doctorBannerText"></span>
+        <button class="btn" id="doctorDismiss" style="margin-left:auto">×</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="skills" id="tabSkills">技能</button>
+        <button class="tab" data-tab="agents" id="tabAgents">代理</button>
+        <button class="tab" data-tab="mcp" id="tabMcp">MCP</button>
+        <button class="tab" data-tab="config" id="tabConfig">配置</button>
+      </div>
+
+      <div class="panel" id="panel"></div>
+      <div class="footer" id="footer"></div>
+    </div>
+
+    <div class="drawerMask" id="drawerMask">
+      <div class="drawer" role="dialog" aria-modal="true">
+        <div class="drawerHeader">
+          <div>
+            <div class="drawerTitle" id="drawerTitle">Details</div>
+            <div class="muted" style="font-size:12px" id="drawerSubtitle"></div>
+          </div>
+          <div class="drawerActions">
+            <label class="pill" id="drawerStrategyWrap" style="display:none; padding:6px 10px" title="Strategy">
+              <span class="muted" id="drawerStrategyLabel" style="font-size:12px">策略</span>
+              <select id="drawerStrategy" style="background:transparent;border:none;color:var(--text);font-size:12px;outline:none">
+                <option value="auto">auto</option>
+                <option value="native">native</option>
+                <option value="managed">managed</option>
+              </select>
+            </label>
+            <button class="btn danger" id="drawerDisable">禁用</button>
+            <button class="btn primary" id="drawerEnable">启用</button>
+            <button class="btn" id="closeDrawer">关闭</button>
+          </div>
+        </div>
+        <div class="drawerBody">
+          <div class="kvs" id="drawerKvs"></div>
+          <pre id="drawerJson"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- petite-vue overlays: bulk action bar, confirm modal, toast stack -->
+    <!-- v-scope is empty so the createApp(state) global scope IS the element scope (keeps reactivity) -->
+    <div id="smBulk" v-scope class="bulkBar" :style="{ display: visible ? 'flex' : 'none' }">
+      <div class="bulkBarInner">
+        <span class="muted" style="font-size:13px">{{ countLabel }}</span>
+        <button class="btn" @click="clear">{{ t.clear }}</button>
+        <span class="bulkSep"></span>
+        <button class="btn primary" :disabled="busy" @click="doBulk('enable')">{{ t.enable }}</button>
+        <button class="btn danger" :disabled="busy" @click="doBulk('disable')">{{ t.disable }}</button>
+        <span class="bulkSep" v-if="canPin"></span>
+        <button class="btn" v-if="canPin" :disabled="busy" @click="doPin('add')">{{ t.pin }}</button>
+        <button class="btn" v-if="canPin" :disabled="busy" @click="doPin('remove')">{{ t.unpin }}</button>
+        <span class="muted" v-if="busy" style="font-size:12px">{{ progressLabel }}</span>
+      </div>
+    </div>
+
+    <div id="smModal" v-scope class="modalMask" :style="{ display: open ? 'flex' : 'none' }" @click.self="cancel">
+      <div class="modalCard" role="dialog" aria-modal="true">
+        <div class="modalTitle">{{ title }}</div>
+        <div class="modalBody" v-html="bodyHtml"></div>
+        <div v-if="preview && preview.length" class="modalPreview">
+          <div class="modalPreviewLabel">{{ t.preview }}</div>
+          <ul>
+            <li v-for="(p, i) in preview" :key="i"><span class="badge">{{ p.kind }}</span> <span class="mono">{{ p.text }}</span></li>
+          </ul>
+        </div>
+        <div class="modalActions">
+          <button class="btn" @click="cancel">{{ t.cancel }}</button>
+          <button class="btn primary" :class="{ danger: tone === 'danger' }" @click="confirm" autofocus>{{ confirmText || t.confirm }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="smToast" v-scope class="toastStack">
+      <div v-for="t in items" :key="t.id" class="toast" :class="'toast-' + t.tone">
+        <div class="toastBody">{{ t.text }}</div>
+        <button class="toastClose" @click="dismiss(t.id)" aria-label="close">×</button>
+      </div>
+    </div>
+
+    <script>
+/* __APP__ */
+</script>
+  </body>
+</html>

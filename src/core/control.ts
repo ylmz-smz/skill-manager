@@ -46,6 +46,12 @@ function inferStrategy(
   if (explicit === "managed") return "managed";
   if (explicit === "symlink") return "symlink";
   if (record.skillKind === "cursor-builtin") return "native";
+  // For the generic ~/.agents/skills/ root, the `disable-model-invocation`
+  // frontmatter flag is a Claude-spec convention that arbitrary editors
+  // (VSCode + Copilot, Codex, etc.) DO NOT honor — they inject every
+  // discovered SKILL.md unconditionally. Default to `managed` so disabling
+  // actually moves the directory out of the scanned root (still reversible).
+  if (record.tool === "agents" && record.skillKind === "markdown") return "managed";
   if (record.skillKind === "markdown") return "native";
   return "managed";
 }

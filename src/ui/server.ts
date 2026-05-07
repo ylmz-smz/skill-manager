@@ -1,8 +1,10 @@
 import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { URL } from "node:url";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { lstat } from "node:fs/promises";
+import { watch as fsWatch, type FSWatcher } from "node:fs";
+import { EventEmitter } from "node:events";
 import { detectConfigFiles, loadConfig, saveConfigFile, validateConfigShape } from "../core/config.js";
 import { listSkills, sortSkills } from "../core/list.js";
 import { listSubagents, sortSubagents } from "../core/subagents.js";
@@ -11,9 +13,25 @@ import { loadState } from "../core/state.js";
 import { pickRecord, disableSkill, enableSkill } from "../core/control.js";
 import { pickSubagentRecord, disableSubagent, enableSubagent } from "../core/subagents-control.js";
 import { pickMcpRecord, disableMcpServer, disableMcpServerSymlink, enableMcpServer, enableMcpServerSymlink } from "../core/mcp-control.js";
+import { runDoctor } from "../core/doctor.js";
 import { WEBAPP_HTML } from "./webapp.js";
 import { lookupDescriptionI18n } from "./description-catalog.js";
 import type { McpToolId, SubagentToolId, ToolId } from "../types.js";
+
+// Process-wide event bus for change notifications. Subscribers (SSE clients
+// and any future in-process listeners) receive `{ kind, source, ts }` events.
+const bus = new EventEmitter();
+bus.setMaxListeners(64);
+
+export interface ChangeEvent {
+  kind: "mutation" | "fs";
+  source: string;
+  ts: number;
+}
+
+function emitChange(kind: ChangeEvent["kind"], source: string): void {
+  bus.emit("change", { kind, source, ts: Date.now() } as ChangeEvent);
+}
 
 function isSelected(select: string[] | undefined, tool: string, id: string): boolean {
   if (!select || select.length === 0) return false;
@@ -156,6 +174,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
           unifiedRoot: unifiedSkillsRoot,
         });
       }
+      emitChange("mutation", `skills/${action}:${tool}/${id}`);
       return json(res, 200, { ok: true }), true;
     }
 
@@ -185,6 +204,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
       } else {
         await enableSubagent({ homedir, record, dryRun: false, strategy: agentStrategy });
       }
+      emitChange("mutation", `agents/${action}:${tool}/${id}`);
       return json(res, 200, { ok: true }), true;
     }
 
@@ -278,6 +298,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
           });
         }
       }
+      emitChange("mutation", `mcp/${action}:${tool}/${id}`);
       return json(res, 200, { ok: true }), true;
     }
 
@@ -299,6 +320,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
         config: validated,
         format,
       });
+      emitChange("mutation", `config/save:${scope}`);
       return json(res, 200, { ok: true, saved }), true;
     }
 
@@ -307,6 +329,41 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
 
   if (req.method !== "GET" && req.method !== "HEAD") {
     return methodNotAllowed(res), true;
+  }
+
+  if (u.pathname === "/api/v1/events") {
+    // Server-Sent Events stream. Keeps the connection open and writes
+    // one event per change notification, plus a heartbeat every 25s so
+    // intermediaries don't close idle connections.
+    res.statusCode = 200;
+    res.setHeader("content-type", "text/event-stream; charset=utf-8");
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("connection", "keep-alive");
+    res.write(`retry: 3000\n\n`);
+    res.write(`event: hello\ndata: ${JSON.stringify({ ts: Date.now() })}\n\n`);
+    const onChange = (ev: ChangeEvent) => {
+      try {
+        res.write(`event: change\ndata: ${JSON.stringify(ev)}\n\n`);
+      } catch {
+        /* client gone; cleanup happens via close */
+      }
+    };
+    bus.on("change", onChange);
+    const beat = setInterval(() => {
+      try { res.write(`event: ping\ndata: ${Date.now()}\n\n`); } catch { /* noop */ }
+    }, 25000);
+    const cleanup = () => {
+      clearInterval(beat);
+      bus.off("change", onChange);
+    };
+    req.on("close", cleanup);
+    req.on("aborted", cleanup);
+    return true;
+  }
+
+  if (u.pathname === "/api/v1/doctor") {
+    const result = await runDoctor({ homedir, projectDir });
+    return json(res, 200, result), true;
   }
 
   if (u.pathname === "/api/v1/skills") {
@@ -426,8 +483,49 @@ export async function startUiServer(opts: {
     server.listen(port, "127.0.0.1", () => resolveListen());
   });
 
+  // Best-effort filesystem watchers. Each watcher is independent; missing
+  // paths are silently ignored. A 400ms debounce coalesces editor save
+  // bursts (vim swap, etc.) into a single change event.
+  const watchers: FSWatcher[] = [];
+  let debounce: NodeJS.Timeout | null = null;
+  let pendingSource = "";
+  const fire = (source: string) => {
+    pendingSource = source;
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      debounce = null;
+      emitChange("fs", pendingSource || "fs");
+      pendingSource = "";
+    }, 400);
+  };
+  const tryWatch = (p: string, recursive = false) => {
+    try {
+      const w = fsWatch(p, { recursive }, (_evt, name) => fire(`${p}${name ? "/" + String(name) : ""}`));
+      w.on("error", () => { /* ignore — watch is best-effort */ });
+      watchers.push(w);
+    } catch {
+      /* missing dir / fs lacks recursive on linux — silently skip */
+    }
+  };
+  // Common config files and skill/agent root dirs.
+  tryWatch(join(homedir, ".claude.json"));
+  tryWatch(join(homedir, ".claude"), true);
+  tryWatch(join(homedir, ".cursor"), true);
+  tryWatch(join(homedir, ".config", "skill-manager"), true);
+  if (projectDir) {
+    tryWatch(join(projectDir, ".mcp.json"));
+    tryWatch(join(projectDir, ".claude"), true);
+    tryWatch(join(projectDir, ".cursor"), true);
+    tryWatch(join(projectDir, ".github", "copilot"), true);
+  }
+
   return {
     close: async () => {
+      if (debounce) { clearTimeout(debounce); debounce = null; }
+      for (const w of watchers) {
+        try { w.close(); } catch { /* noop */ }
+      }
+      bus.removeAllListeners("change");
       await new Promise<void>((resolveClose, rejectClose) => {
         server.close((e) => (e ? rejectClose(e) : resolveClose()));
       });
