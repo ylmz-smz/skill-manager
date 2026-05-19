@@ -8,6 +8,7 @@ import { registerConfigCommands } from "./cli/commands/config.js";
 import { registerDoctorCommand } from "./cli/commands/doctor.js";
 import { registerLegacySkillsCommands } from "./cli/commands/legacy-skills.js";
 import { registerUiCommand } from "./cli/commands/ui.js";
+import { registerPreviewCommands } from "./cli/commands/preview.js";
 
 async function main(): Promise<void> {
   const program = new Command();
@@ -22,6 +23,7 @@ async function main(): Promise<void> {
   registerConfigCommands(program);
   registerDoctorCommand(program);
   registerUiCommand(program);
+  registerPreviewCommands(program);
   // Legacy (v1) skills entrypoints
   registerLegacySkillsCommands(program);
 

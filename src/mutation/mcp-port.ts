@@ -24,6 +24,17 @@ export interface McpMutationPortConfig {
   readOnly?: boolean;
 }
 
+/**
+ * Note on the `envKeys` parameter:
+ * Every key declared under the MCP server's `env` object is passed in as
+ * an explicit whitelist to redact(). This is conservative-by-default —
+ * even harmless-looking keys like DEBUG=1 will be masked in the preview.
+ * Rationale: MCP env is the canonical "secret slot" in this domain; the
+ * cost of over-masking (user re-reads the raw file) is small, the cost
+ * of under-masking (secret in clipboard / chat history) is permanent.
+ * Built-in suffix patterns are layered on top to catch leaks outside the
+ * `env` block (e.g. tokens embedded in args).
+ */
 function buildPreview(files: DiffFile[], warnings: string[], envKeys: string[]): DiffPreview {
   const mergedKeys = new Set<string>();
   const redactedFiles: DiffFile[] = files.map((f) => {
