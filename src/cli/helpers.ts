@@ -1,5 +1,12 @@
 import { basename } from "node:path";
+import { z } from "zod";
 import type { ControlStrategy, McpToolId, SubagentToolId, ToolId } from "../types.js";
+import {
+  McpToolIdOrAllSchema,
+  StrategySchema,
+  SubagentToolIdOrAllSchema,
+  ToolIdOrAllSchema,
+} from "../domain/schema.js";
 
 export const TOOLS = [
   "claude-code",
@@ -15,35 +22,36 @@ export const SUBAGENT_TOOLS = ["cursor", "claude-code", "codex", "all"] as const
 
 export const MCP_TOOLS = ["cursor", "claude-code", "all"] as const;
 
+function parseWithSchema<T>(
+  schema: z.ZodType<T>,
+  v: unknown,
+  flag: string,
+  allowed: readonly string[],
+): T {
+  const r = schema.safeParse(v);
+  if (r.success) return r.data;
+  throw new Error(`${flag} must be one of: ${allowed.join(", ")} (got ${JSON.stringify(v)})`);
+}
+
 export function parseTool(v: string): ToolId | "all" {
-  if (v === "all") return "all";
-  if (
-    v === "claude-code" ||
-    v === "cursor" ||
-    v === "vscode" ||
-    v === "codebuddy" ||
-    v === "agents" ||
-    v === "codex"
-  )
-    return v;
-  throw new Error(`--tool must be one of: ${TOOLS.join(", ")} (got ${JSON.stringify(v)})`);
+  return parseWithSchema(ToolIdOrAllSchema, v, "--tool", TOOLS);
 }
 
 export function parseStrategy(v: string): ControlStrategy {
-  if (v === "auto" || v === "native" || v === "managed" || v === "symlink") return v;
-  throw new Error(`--strategy must be auto|native|managed|symlink (got ${JSON.stringify(v)})`);
+  return parseWithSchema(
+    StrategySchema,
+    v,
+    "--strategy",
+    ["auto", "native", "managed", "symlink"],
+  );
 }
 
 export function parseSubagentTool(v: string): SubagentToolId | "all" {
-  if (v === "all") return "all";
-  if (v === "cursor" || v === "claude-code" || v === "codex") return v;
-  throw new Error(`--tool must be one of: ${SUBAGENT_TOOLS.join(", ")} (got ${JSON.stringify(v)})`);
+  return parseWithSchema(SubagentToolIdOrAllSchema, v, "--tool", SUBAGENT_TOOLS);
 }
 
 export function parseMcpTool(v: string): McpToolId | "all" {
-  if (v === "all") return "all";
-  if (v === "cursor" || v === "claude-code") return v;
-  throw new Error(`--tool must be one of: ${MCP_TOOLS.join(", ")} (got ${JSON.stringify(v)})`);
+  return parseWithSchema(McpToolIdOrAllSchema, v, "--tool", MCP_TOOLS);
 }
 
 export function requireForceForDisable(): void {

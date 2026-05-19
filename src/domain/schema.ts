@@ -27,6 +27,20 @@ export const SubagentToolIdSchema = z.enum(["cursor", "claude-code", "codex"]);
 
 export const McpToolIdSchema = z.enum(["cursor", "claude-code"]);
 
+/**
+ * "or-all" variants used by CLI/HTTP query parsing where the user can
+ * pass either a concrete tool id or the special string "all".
+ */
+export const ToolIdOrAllSchema = z.union([ToolIdSchema, z.literal("all")]);
+export const SubagentToolIdOrAllSchema = z.union([
+  SubagentToolIdSchema,
+  z.literal("all"),
+]);
+export const McpToolIdOrAllSchema = z.union([
+  McpToolIdSchema,
+  z.literal("all"),
+]);
+
 export const SourceKindSchema = z.enum([
   "user-global",
   "project",

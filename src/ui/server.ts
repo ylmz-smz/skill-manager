@@ -17,6 +17,11 @@ import { runDoctor } from "../core/doctor.js";
 import { WEBAPP_HTML } from "./webapp.js";
 import { lookupDescriptionI18n } from "./description-catalog.js";
 import type { McpToolId, SubagentToolId, ToolId } from "../types.js";
+import {
+  McpToolIdSchema,
+  SubagentToolIdSchema,
+  ToolIdSchema,
+} from "../domain/schema.js";
 
 // Process-wide event bus for change notifications. Subscribers (SSE clients
 // and any future in-process listeners) receive `{ kind, source, ts }` events.
@@ -81,20 +86,21 @@ function notFound(res: ServerResponse): void {
 }
 
 function asToolId(v: unknown): ToolId {
-  if (v === "claude-code" || v === "cursor" || v === "vscode" || v === "codebuddy" || v === "agents" || v === "codex") {
-    return v;
-  }
-  throw new Error("Invalid tool");
+  const r = ToolIdSchema.safeParse(v);
+  if (!r.success) throw new Error("Invalid tool");
+  return r.data;
 }
 
 function asSubagentToolId(v: unknown): SubagentToolId {
-  if (v === "cursor" || v === "claude-code" || v === "codex") return v;
-  throw new Error("Invalid subagent tool");
+  const r = SubagentToolIdSchema.safeParse(v);
+  if (!r.success) throw new Error("Invalid subagent tool");
+  return r.data;
 }
 
 function asMcpToolId(v: unknown): McpToolId {
-  if (v === "cursor" || v === "claude-code") return v;
-  throw new Error("Invalid mcp tool");
+  const r = McpToolIdSchema.safeParse(v);
+  if (!r.success) throw new Error("Invalid mcp tool");
+  return r.data;
 }
 
 async function readJsonBody(req: IncomingMessage, limitBytes = 1024 * 64): Promise<unknown> {
