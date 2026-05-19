@@ -1,5 +1,15 @@
 # skill-manager UI 优化 — 实施计划
 
+> ⚠️ **已被 [`docs/specs/v0.4-overhaul.md`](./docs/specs/v0.4-overhaul.md) 取代** ⚠️
+>
+> 本文档原本是 v0.3.x 阶段的 UI 优化计划。截至 v0.4 改造启动（2026-05-18），其多数阶段已实际落地（端口 fallback、localStorage、build-web 拆分、petite-vue、SSE 等），但与代码事实存在偏差。
+>
+> **请直接阅读 v0.4-overhaul.md 作为执行依据**。本文档仅作历史参考保留。
+>
+> ---
+>
+> 以下为原文（历史快照，不再维护）：
+>
 > 单一事实来源；落地完成后会从仓库移除。
 
 ## 背景

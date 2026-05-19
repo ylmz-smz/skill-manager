@@ -176,7 +176,7 @@
           descMode: "描述",
           descModeOptions: { auto: "本地化", both: "双语", raw: "原始" },
           refresh: "刷新",
-          tabs: { skills: "技能", agents: "代理", mcp: "MCP", config: "配置" },
+          tabs: { skills: "技能", agents: "子代理", mcp: "MCP", config: "配置" },
           drawer: { close: "关闭", enable: "启用", disable: "禁用", details: "详情" },
           status: { enabled: "启用", disabled: "禁用" },
           empty: "暂无数据。",
@@ -186,8 +186,8 @@
           confirm: {
             skillDisable: "禁用该技能？这可能会移动文件或修改 frontmatter。是否继续？",
             skillEnable: "启用该技能？是否继续？",
-            agentDisable: "禁用该代理（会归档其 markdown 文件）？是否继续？",
-            agentEnable: "启用该代理（如需则从归档恢复）？是否继续？",
+            agentDisable: "禁用该子代理（会归档其 markdown 文件）？是否继续？",
+            agentEnable: "启用该子代理（如需则从归档恢复）？是否继续？",
             mcpReadOnly: "MCP 写入被配置禁止（mcp.readOnly=true）。",
             mcpDisable: "禁用该 MCP Server？这会修改配置文件。是否继续？",
             mcpEnable: "启用该 MCP Server？这会修改配置文件。是否继续？",
@@ -211,7 +211,7 @@
           descMode: "Description",
           descModeOptions: { auto: "Localized", both: "Bilingual", raw: "Raw" },
           refresh: "Refresh",
-          tabs: { skills: "Skills", agents: "Agents", mcp: "MCP", config: "Config" },
+          tabs: { skills: "Skills", agents: "Subagents", mcp: "MCP", config: "Config" },
           drawer: { close: "Close", enable: "Enable", disable: "Disable", details: "Details" },
           status: { enabled: "enabled", disabled: "disabled" },
           empty: "No items.",
@@ -221,8 +221,8 @@
           confirm: {
             skillDisable: "Disable this skill? This may move files or edit frontmatter. Continue?",
             skillEnable: "Enable this skill? Continue?",
-            agentDisable: "Disable this agent (archive its markdown file)? Continue?",
-            agentEnable: "Enable this agent (restore from archive if needed)? Continue?",
+            agentDisable: "Disable this subagent (archive its markdown file)? Continue?",
+            agentEnable: "Enable this subagent (restore from archive if needed)? Continue?",
             mcpReadOnly: "MCP writes are disabled by config (mcp.readOnly=true).",
             mcpDisable: "Disable this MCP server? This will edit the config file. Continue?",
             mcpEnable: "Enable this MCP server? This will edit the config file. Continue?",
@@ -705,7 +705,7 @@
                   '<option value="managed">managed</option>' +
                   '<option value="symlink">symlink</option>' +
                 '</select>' +
-                '<div class="help">' + (state.lang === "zh" ? "控制技能/代理启用禁用时使用的策略。" : "Strategy used when enabling/disabling skills/agents.") + '</div>' +
+                '<div class="help">' + (state.lang === "zh" ? "控制技能/子代理启用禁用时使用的策略。" : "Strategy used when enabling/disabling skills/subagents.") + '</div>' +
               '</div>' +
 
               '<div class="label">mcp.readOnly</div>' +
@@ -723,7 +723,7 @@
                 '<div class="help">' + (state.lang === "zh" ? "用于扫描额外的 skills 根目录。" : "Additional roots to scan for skills.") + '</div>' +
               '</div>' +
 
-              '<div class="label">' + (state.lang === "zh" ? "额外代理目录" : "Extra agent roots") + '</div>' +
+              '<div class="label">' + (state.lang === "zh" ? "额外子代理目录" : "Extra subagent roots") + '</div>' +
               '<div>' +
                 '<textarea id="cfgExtraAgentRoots" spellcheck="false" placeholder="' + (state.lang === "zh" ? "每行一个路径（支持 ~）" : "One path per line (supports ~)") + '"></textarea>' +
                 '<div class="help">' + (state.lang === "zh" ? "用于扫描额外的 subagents 根目录。" : "Additional roots to scan for subagents.") + '</div>' +
@@ -735,7 +735,7 @@
                 '<div class="help">' + (state.lang === "zh" ? "选中条目将被移动到这里，并通过软链接挂载到各工具目录。" : "Selected items are moved here and mounted via symlink into tool directories.") + '</div>' +
               '</div>' +
 
-              '<div class="label">' + (state.lang === "zh" ? "统一 Agents 目录" : "Unified agents root") + '</div>' +
+              '<div class="label">' + (state.lang === "zh" ? "统一 Subagents 目录" : "Unified subagents root") + '</div>' +
               '<div>' +
                 '<input type="text" id="cfgUnifiedAgentsRoot" placeholder="' + (state.lang === "zh" ? "例如：~/x/unified/agents" : "e.g. ~/x/unified/agents") + '" />' +
                 '<div class="help">' + (state.lang === "zh" ? "用于 subagents 的统一存储；启用时在 .cursor/.claude/.codex 下创建软链接。" : "Canonical storage for subagents; enable creates symlink under .cursor/.claude/.codex.") + '</div>' +
@@ -753,7 +753,7 @@
                 '<div class="help">' + (state.lang === "zh" ? "每行一个：<tool>:<id>。命中的条目会自动走 symlink 策略。" : "One per line: <tool>:<id>. Matched entries use symlink strategy automatically.") + '</div>' +
               '</div>' +
 
-              '<div class="label">' + (state.lang === "zh" ? "选择纳入 Agents（tool:id）" : "Select agents (tool:id)") + '</div>' +
+              '<div class="label">' + (state.lang === "zh" ? "选择纳入 Subagents（tool:id）" : "Select subagents (tool:id)") + '</div>' +
               '<div>' +
                 '<textarea id="cfgSelectAgents" spellcheck="false" placeholder="cursor:verifier\nclaude-code:reviewer"></textarea>' +
               '</div>' +
@@ -1154,10 +1154,10 @@
         const titleKey = action === "disable" ? t().drawer.disable : t().drawer.enable;
         const bodyText =
           (state.lang === "en"
-            ? "About to " + action + " " + records.length + " " + tab + (tab === "mcp" ? " server(s)." : (tab === "agents" ? " agent(s)." : " skill(s).")) +
+            ? "About to " + action + " " + records.length + " " + tab + (tab === "mcp" ? " server(s)." : (tab === "agents" ? " subagent(s)." : " skill(s).")) +
               (tab === "skills" && action === "disable" ? " Strategy: managed (archive directories; safe for read-only files)." : "")
             : "即将" + (action === "disable" ? "批量禁用" : "批量启用") + " " + records.length + " 个" +
-              (tab === "mcp" ? " MCP server" : (tab === "agents" ? "代理" : "技能")) + "。" +
+              (tab === "mcp" ? " MCP server" : (tab === "agents" ? "子代理" : "技能")) + "。" +
               (tab === "skills" && action === "disable" ? "策略：managed（整目录归档，规避只读文件权限问题）。" : ""));
 
         const ok = await window.smModal({

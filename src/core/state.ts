@@ -130,21 +130,21 @@ export async function loadState(homedir: string): Promise<StateFile> {
       for (const a of v3.archived ?? []) {
         if (!a || typeof a !== "object") continue;
         if (
-          typeof (a as any).tool !== "string" ||
-          typeof (a as any).id !== "string" ||
-          typeof (a as any).originalPath !== "string" ||
-          typeof (a as any).archivePath !== "string" ||
-          typeof (a as any).archivedAt !== "string"
+          typeof a.tool !== "string" ||
+          typeof a.id !== "string" ||
+          typeof a.originalPath !== "string" ||
+          typeof a.archivePath !== "string" ||
+          typeof a.archivedAt !== "string"
         ) {
           continue;
         }
         const rk = (a as { resourceKind?: unknown }).resourceKind;
         normalized.push({
-          tool: (a as any).tool as ToolId,
-          id: (a as any).id,
-          originalPath: (a as any).originalPath,
-          archivePath: (a as any).archivePath,
-          archivedAt: (a as any).archivedAt,
+          tool: a.tool as ToolId,
+          id: a.id,
+          originalPath: a.originalPath,
+          archivePath: a.archivePath,
+          archivedAt: a.archivedAt,
           resourceKind: rk === "subagent" ? "subagent" : "skill",
         });
       }

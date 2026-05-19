@@ -1,6 +1,16 @@
 # skill-manager v2 — 统一规划
 
-面向 **Skills、Subagents（Agent）、MCP** 的全局/项目配置治理，以及 **可读的 CLI + 本地可视化**。本文档是重构的单一事实来源（后续实现以本文为准迭代）。
+> ⚠️ **已被 [`docs/specs/v0.4-overhaul.md`](./specs/v0.4-overhaul.md) 取代** ⚠️
+>
+> 本文档是 v2 阶段的统一规划，多数 P0/P1/P2 项已落地（领域类型、`agents`/`mcp` 子命令、UI MVP、`config.yaml` 等），但 `state.json` 已实际推进到 **v4**（本文档仍写 v2），且产品定位已从「CLI + 可视化」转向「**UI 优先的本地 AI dotfiles 管家**」。
+>
+> **请直接阅读 v0.4-overhaul.md 作为执行依据**。本文档仅作历史参考保留。
+>
+> ---
+>
+> 以下为原文（历史快照，不再维护）：
+>
+> 面向 **Skills、Subagents（Agent）、MCP** 的全局/项目配置治理，以及 **可读的 CLI + 本地可视化**。本文档是重构的单一事实来源（后续实现以本文为准迭代）。
 
 ---
 

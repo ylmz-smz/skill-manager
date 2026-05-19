@@ -91,7 +91,8 @@ export async function listSkills(opts: {
   extraSkillRoots?: string[];
 }): Promise<SkillRecord[]> {
   const { homedir, projectDir, tool, state, extraSkillRoots } = opts;
-  const ALL_TOOLS: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents", "codex"];
+  // codex skills are not implemented yet; keeping codex in ToolId is for subagents only.
+  const ALL_TOOLS: ToolId[] = ["claude-code", "cursor", "vscode", "codebuddy", "agents"];
   const tools =
     tool === "all"
       ? new Set<ToolId>(ALL_TOOLS)
@@ -156,9 +157,6 @@ export async function listSkills(opts: {
     );
   }
 
-  if (tool === "all") {
-    return mergeDiskAndArchived(disk, state, tools);
-  }
   return mergeDiskAndArchived(disk, state, tools);
 }
 
