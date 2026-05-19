@@ -1,39 +1,23 @@
-import { basename, join } from "node:path";
-import { parseSkillMarkdown } from "../utils/frontmatter.js";
-import { listSkillDirsFlat, readTextIfExists } from "../utils/fs.js";
-import type { SkillRecord, SourceKind, ToolId } from "../types.js";
-
-const TOOL: ToolId = "cursor";
+import { join } from "node:path";
+import { readTextIfExists } from "../utils/fs.js";
+import {
+  createFlatSkillAdapter,
+  type FlatSkillAdapter,
+} from "../discovery/skill-flat-factory.js";
+import type { SkillRecord, SourceKind } from "../types.js";
 
 interface CursorManifest {
   builtinSkillIds?: string[];
   managedSkillIds?: string[];
 }
 
-async function skillRecordFromDir(
-  skillDir: string,
-  sourceKind: SourceKind,
-): Promise<SkillRecord | undefined> {
-  const skillPath = join(skillDir, "SKILL.md");
-  const raw = await readTextIfExists(skillPath);
-  if (!raw) return undefined;
-  const { frontmatter } = parseSkillMarkdown(raw);
-  const dirName = basename(skillDir);
-  const id = frontmatter.name?.trim() || dirName;
-  const disable = frontmatter.disableModelInvocation === true;
-  return {
-    tool: TOOL,
-    id,
-    displayName: id,
-    description: frontmatter.description ?? "",
-    descriptionI18n: frontmatter.descriptionI18n,
-    sourceKind,
-    path: skillDir,
-    invocation: { disableModelInvocation: disable },
-    enabled: !disable,
-    enabledSemantic: "native",
-    skillKind: "markdown",
-  };
+function builtinManifestPath(homedir: string): string {
+  return join(
+    homedir,
+    ".cursor",
+    "skills-cursor",
+    ".cursor-managed-skills-manifest.json",
+  );
 }
 
 function builtinRecords(
@@ -46,7 +30,7 @@ function builtinRecords(
   ];
   const uniq = [...new Set(ids)];
   return uniq.map((id) => ({
-    tool: TOOL,
+    tool: "cursor" as const,
     id,
     displayName: id,
     description: "",
@@ -60,49 +44,30 @@ function builtinRecords(
   }));
 }
 
+async function scanBuiltinManifest(homedir: string): Promise<SkillRecord[]> {
+  const manifestPath = builtinManifestPath(homedir);
+  const raw = await readTextIfExists(manifestPath);
+  if (!raw) return [];
+  try {
+    const data = JSON.parse(raw) as CursorManifest;
+    return builtinRecords(manifestPath, data);
+  } catch {
+    return [];
+  }
+}
+
+export const cursorSkillAdapter: FlatSkillAdapter = createFlatSkillAdapter({
+  tool: "cursor",
+  userRoot: (h) => join(h, ".cursor", "skills"),
+  projectRoot: (p) => join(p, ".cursor", "skills"),
+  extraScan: scanBuiltinManifest,
+});
+
+/** @deprecated Use `cursorSkillAdapter.discover(...)` instead. */
 export async function discoverCursorSkills(
   homedir: string,
   projectDir?: string,
   extraRoots?: Array<{ root: string; sourceKind: SourceKind }>,
 ): Promise<SkillRecord[]> {
-  const out: SkillRecord[] = [];
-
-  const userRoot = join(homedir, ".cursor", "skills");
-  for (const dir of await listSkillDirsFlat(userRoot)) {
-    const r = await skillRecordFromDir(dir, "user-global");
-    if (r) out.push(r);
-  }
-
-  if (projectDir) {
-    const projRoot = join(projectDir, ".cursor", "skills");
-    for (const dir of await listSkillDirsFlat(projRoot)) {
-      const r = await skillRecordFromDir(dir, "project");
-      if (r) out.push(r);
-    }
-  }
-
-  for (const ex of extraRoots ?? []) {
-    for (const dir of await listSkillDirsFlat(ex.root)) {
-      const r = await skillRecordFromDir(dir, ex.sourceKind);
-      if (r) out.push(r);
-    }
-  }
-
-  const manifestPath = join(
-    homedir,
-    ".cursor",
-    "skills-cursor",
-    ".cursor-managed-skills-manifest.json",
-  );
-  const manifestRaw = await readTextIfExists(manifestPath);
-  if (manifestRaw) {
-    try {
-      const data = JSON.parse(manifestRaw) as CursorManifest;
-      out.push(...builtinRecords(manifestPath, data));
-    } catch {
-      /* ignore malformed manifest */
-    }
-  }
-
-  return out;
+  return cursorSkillAdapter.discover(homedir, projectDir, extraRoots);
 }
