@@ -125,10 +125,28 @@ function methodNotAllowed(res: ServerResponse): void {
   res.end(JSON.stringify({ error: "Method not allowed" }));
 }
 
+/**
+ * Tag every /api/v1/* response with deprecation headers per RFC 8594.
+ *
+ * v1 ships unchanged in v0.4 for backward compatibility, but v0.5
+ * removes it. Clients should migrate to /api/v2/resources/{preview,
+ * apply}. The Sunset date is a soft target — actual cutover happens
+ * with the v0.5 release, whichever comes first.
+ */
+function markV1Deprecated(res: ServerResponse): void {
+  res.setHeader("Deprecation", "true");
+  res.setHeader("Sunset", "Wed, 31 Dec 2026 23:59:59 GMT");
+  res.setHeader(
+    "Link",
+    '</api/v2/resources/preview>; rel="successor-version", </api/v2/resources/apply>; rel="successor-version"',
+  );
+}
+
 async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: string, projectDir?: string): Promise<boolean> {
   if (!req.url) return false;
   const u = new URL(req.url, "http://127.0.0.1");
   if (!u.pathname.startsWith("/api/")) return false;
+  if (u.pathname.startsWith("/api/v1/")) markV1Deprecated(res);
 
   const { config, sources } = await loadConfig({ homedir, projectDir });
   const state = await loadState(homedir);
