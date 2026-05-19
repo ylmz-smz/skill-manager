@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import DiffDrawer from "./components/DiffDrawer";
 import FilterBar from "./components/FilterBar";
 import ResourceTable from "./components/ResourceTable";
 import { useStore } from "./store";
@@ -57,6 +58,8 @@ export default function App() {
       <footer className="border-t border-zinc-800 px-6 py-3 text-xs text-zinc-500">
         Local-only • No telemetry • <span className="font-mono">/api/v2</span>
       </footer>
+
+      <DiffDrawer />
     </div>
   );
 }

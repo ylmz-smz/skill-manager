@@ -17,6 +17,7 @@ const KIND_LABEL: Record<ResourceKind, string> = {
 function Row({ r }: { r: Resource }) {
   const selected = useStore((s) => s.selected);
   const toggleSelect = useStore((s) => s.toggleSelect);
+  const openDrawer = useStore((s) => s.openDrawer);
   const key = resourceKey(r);
   const isSelected = selected.has(key);
 
@@ -62,6 +63,15 @@ function Row({ r }: { r: Resource }) {
         >
           {r.enabled ? "on" : "off"}
         </span>
+      </td>
+      <td className="p-2 align-middle">
+        <button
+          type="button"
+          onClick={() => openDrawer(r, r.enabled ? "disable" : "enable")}
+          className="text-xs px-2 py-1 rounded border border-zinc-700 hover:border-sky-500 hover:text-sky-300 transition-colors"
+        >
+          Preview
+        </button>
       </td>
     </tr>
   );
@@ -111,6 +121,7 @@ export default function ResourceTable() {
             <th className="p-2">Name / id</th>
             <th className="p-2">Description</th>
             <th className="p-2">Status</th>
+            <th className="p-2 w-24"></th>
           </tr>
         </thead>
         <tbody>

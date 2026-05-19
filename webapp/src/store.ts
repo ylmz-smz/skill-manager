@@ -1,6 +1,12 @@
 import { create } from "zustand";
-import { listResources } from "./api/client";
-import type { Resource } from "./api/types";
+import { applyResource, listResources, previewResource } from "./api/client";
+import type {
+  DiffPreview,
+  MutationResult,
+  Resource,
+  ResourceOp,
+  Strategy,
+} from "./api/types";
 import type { ResourceKind, ToolId } from "@domain/types.js";
 
 /**
@@ -16,10 +22,37 @@ import type { ResourceKind, ToolId } from "@domain/types.js";
  */
 
 export type LoadStatus = "idle" | "loading" | "ready" | "error";
+export type ApplyStatus = "idle" | "applying" | "done" | "error";
 
 export function resourceKey(r: Resource): string {
   return `${r.kind}:${r.tool}:${r.id}`;
 }
+
+export interface DrawerSlice {
+  target: Resource | null;
+  op: ResourceOp;
+  strategy: Strategy;
+  /** Most-recent successful preview; null while loading or after an error. */
+  preview: DiffPreview | null;
+  /** True while a /preview request is in flight. */
+  previewLoading: boolean;
+  previewError: string | undefined;
+  applyStatus: ApplyStatus;
+  applyResult: MutationResult | null;
+  applyError: string | undefined;
+}
+
+const EMPTY_DRAWER: DrawerSlice = {
+  target: null,
+  op: "disable",
+  strategy: "auto",
+  preview: null,
+  previewLoading: false,
+  previewError: undefined,
+  applyStatus: "idle",
+  applyResult: null,
+  applyError: undefined,
+};
 
 interface State {
   // --- catalog ---
@@ -35,6 +68,9 @@ interface State {
   // --- selection ---
   selected: ReadonlySet<string>;
 
+  // --- drawer ---
+  drawer: DrawerSlice;
+
   // --- actions ---
   load: () => Promise<void>;
   toggleSelect: (key: string) => void;
@@ -42,6 +78,11 @@ interface State {
   setKindFilter: (k: ReadonlySet<ResourceKind>) => void;
   setToolFilter: (t: ReadonlySet<ToolId>) => void;
   setSearch: (s: string) => void;
+  openDrawer: (target: Resource, op: ResourceOp) => Promise<void>;
+  closeDrawer: () => void;
+  setDrawerOp: (op: ResourceOp) => Promise<void>;
+  setDrawerStrategy: (strategy: Strategy) => Promise<void>;
+  applyChange: () => Promise<void>;
 }
 
 const ALL_KINDS: ReadonlySet<ResourceKind> = new Set([
@@ -49,6 +90,38 @@ const ALL_KINDS: ReadonlySet<ResourceKind> = new Set([
   "subagent",
   "mcp_server",
 ]);
+
+/**
+ * Fetch a fresh preview for the current drawer target / op / strategy
+ * and reconcile the drawer slice. Used by openDrawer + setDrawerOp +
+ * setDrawerStrategy so the drawer always shows a diff consistent with
+ * the currently-selected knobs.
+ */
+async function refreshPreview(
+  get: () => State,
+  set: (partial: Partial<State> | ((s: State) => Partial<State>)) => void,
+): Promise<void> {
+  const { target, op, strategy } = get().drawer;
+  if (!target) return;
+  set((s) => ({
+    drawer: { ...s.drawer, previewLoading: true, previewError: undefined },
+  }));
+  try {
+    const preview = await previewResource({ resource: target, op, strategy });
+    set((s) => ({
+      drawer: { ...s.drawer, preview, previewLoading: false },
+    }));
+  } catch (e) {
+    set((s) => ({
+      drawer: {
+        ...s.drawer,
+        preview: null,
+        previewLoading: false,
+        previewError: e instanceof Error ? e.message : String(e),
+      },
+    }));
+  }
+}
 
 export const useStore = create<State>((set, get) => ({
   status: "idle",
@@ -58,6 +131,7 @@ export const useStore = create<State>((set, get) => ({
   toolFilter: new Set<ToolId>(),
   search: "",
   selected: new Set<string>(),
+  drawer: EMPTY_DRAWER,
 
   async load() {
     set({ status: "loading", error: undefined });
@@ -93,6 +167,73 @@ export const useStore = create<State>((set, get) => ({
 
   setSearch(s) {
     set({ search: s });
+  },
+
+  async openDrawer(target, op) {
+    // Sensible default op: if a resource is currently on, default to disable.
+    const initialOp: ResourceOp = op ?? (target.enabled ? "disable" : "enable");
+    set({
+      drawer: {
+        ...EMPTY_DRAWER,
+        target,
+        op: initialOp,
+      },
+    });
+    await refreshPreview(get, set);
+  },
+
+  closeDrawer() {
+    set({ drawer: EMPTY_DRAWER });
+  },
+
+  async setDrawerOp(op) {
+    set((s) => ({
+      drawer: { ...s.drawer, op, applyStatus: "idle", applyError: undefined },
+    }));
+    await refreshPreview(get, set);
+  },
+
+  async setDrawerStrategy(strategy) {
+    set((s) => ({
+      drawer: { ...s.drawer, strategy, applyStatus: "idle", applyError: undefined },
+    }));
+    await refreshPreview(get, set);
+  },
+
+  async applyChange() {
+    const { target, op, strategy } = get().drawer;
+    if (!target) return;
+    set((s) => ({
+      drawer: { ...s.drawer, applyStatus: "applying", applyError: undefined },
+    }));
+    try {
+      const result = await applyResource({
+        resource: target,
+        op,
+        strategy,
+        opts: {},
+      });
+      set((s) => ({
+        drawer: {
+          ...s.drawer,
+          applyStatus: result.ok ? "done" : "error",
+          applyResult: result,
+          applyError: result.ok ? undefined : result.warnings.join("; ") || "Apply failed",
+        },
+      }));
+      if (result.ok && result.applied) {
+        // Re-fetch the catalog so the row's `enabled` flips correctly.
+        await get().load();
+      }
+    } catch (e) {
+      set((s) => ({
+        drawer: {
+          ...s.drawer,
+          applyStatus: "error",
+          applyError: e instanceof Error ? e.message : String(e),
+        },
+      }));
+    }
   },
 }));
 
