@@ -3,6 +3,8 @@ import { basename, join } from "node:path";
 import type { SubagentRecord, SubagentToolId } from "../types.js";
 import { findMarkdownUnder, pathExists } from "../utils/fs.js";
 import { parseSubagentMarkdown } from "../utils/subagent-frontmatter.js";
+import type { DiscoveryPort, ScanContext } from "../discovery/port.js";
+import { toSubagentResource } from "../domain/convert.js";
 
 function inferToolFromRoot(root: string): SubagentToolId {
   const p = root.replace(/\\/g, "/");
@@ -104,4 +106,38 @@ export async function discoverSubagents(
 
   return out;
 }
+
+/**
+ * Subagent discovery is multi-tool by design (one filesystem walk yields
+ * cursor + claude-code + codex records). We expose a single Port per tool
+ * so callers can iterate `[...skillPorts, ...subagentPorts, ...mcpPorts]`
+ * uniformly. Each Port internally delegates to `discoverSubagents()` and
+ * filters by its `tool` — three I/O passes per ScanContext, accepted as
+ * a non-issue for now (~ms-scale; revisit only if profiling demands).
+ */
+function makeSubagentPort(tool: SubagentToolId): DiscoveryPort<"subagent"> {
+  return {
+    tool,
+    kind: "subagent",
+    async scan(ctx: ScanContext) {
+      const all = await discoverSubagents(
+        ctx.homedir,
+        ctx.projectDir,
+        ctx.extraSubagentRoots,
+      );
+      return all.filter((r) => r.tool === tool).map(toSubagentResource);
+    },
+  };
+}
+
+export const cursorSubagentPort = makeSubagentPort("cursor");
+export const claudeSubagentPort = makeSubagentPort("claude-code");
+export const codexSubagentPort = makeSubagentPort("codex");
+
+/** All subagent discovery ports for fan-out style callers. */
+export const subagentDiscoveryPorts: DiscoveryPort<"subagent">[] = [
+  cursorSubagentPort,
+  claudeSubagentPort,
+  codexSubagentPort,
+];
 

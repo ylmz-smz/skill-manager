@@ -2,6 +2,8 @@ import { basename, join } from "node:path";
 import { parseSkillMarkdown } from "../utils/frontmatter.js";
 import { listSkillDirsFlat, readTextIfExists } from "../utils/fs.js";
 import type { SkillRecord, SourceKind, ToolId } from "../types.js";
+import type { DiscoveryPort, ScanContext } from "./port.js";
+import { toSkillResource } from "../domain/convert.js";
 
 /**
  * Shared factory for "flat skill directory" adapters.
@@ -30,8 +32,8 @@ export interface FlatSkillAdapterConfig {
   postProcess?: (records: SkillRecord[]) => SkillRecord[];
 }
 
-export interface FlatSkillAdapter {
-  tool: ToolId;
+export interface FlatSkillAdapter extends DiscoveryPort<"skill"> {
+  /** @deprecated Use `scan(ctx)` instead — prefer the Port API. */
   discover(
     homedir: string,
     projectDir?: string,
@@ -67,35 +69,46 @@ export async function skillRecordFromDir(
 }
 
 export function createFlatSkillAdapter(cfg: FlatSkillAdapterConfig): FlatSkillAdapter {
-  return {
-    tool: cfg.tool,
-    async discover(homedir, projectDir, extraRoots) {
-      const out: SkillRecord[] = [];
+  async function discover(
+    homedir: string,
+    projectDir?: string,
+    extraRoots?: Array<{ root: string; sourceKind: SourceKind }>,
+  ): Promise<SkillRecord[]> {
+    const out: SkillRecord[] = [];
 
-      for (const dir of await listSkillDirsFlat(cfg.userRoot(homedir))) {
-        const r = await skillRecordFromDir(dir, cfg.tool, "user-global");
+    for (const dir of await listSkillDirsFlat(cfg.userRoot(homedir))) {
+      const r = await skillRecordFromDir(dir, cfg.tool, "user-global");
+      if (r) out.push(r);
+    }
+
+    if (projectDir && cfg.projectRoot) {
+      for (const dir of await listSkillDirsFlat(cfg.projectRoot(projectDir))) {
+        const r = await skillRecordFromDir(dir, cfg.tool, "project");
         if (r) out.push(r);
       }
+    }
 
-      if (projectDir && cfg.projectRoot) {
-        for (const dir of await listSkillDirsFlat(cfg.projectRoot(projectDir))) {
-          const r = await skillRecordFromDir(dir, cfg.tool, "project");
-          if (r) out.push(r);
-        }
+    for (const ex of extraRoots ?? []) {
+      for (const dir of await listSkillDirsFlat(ex.root)) {
+        const r = await skillRecordFromDir(dir, cfg.tool, ex.sourceKind);
+        if (r) out.push(r);
       }
+    }
 
-      for (const ex of extraRoots ?? []) {
-        for (const dir of await listSkillDirsFlat(ex.root)) {
-          const r = await skillRecordFromDir(dir, cfg.tool, ex.sourceKind);
-          if (r) out.push(r);
-        }
-      }
+    if (cfg.extraScan) {
+      out.push(...(await cfg.extraScan(homedir)));
+    }
 
-      if (cfg.extraScan) {
-        out.push(...(await cfg.extraScan(homedir)));
-      }
+    return cfg.postProcess ? cfg.postProcess(out) : out;
+  }
 
-      return cfg.postProcess ? cfg.postProcess(out) : out;
+  return {
+    tool: cfg.tool,
+    kind: "skill",
+    discover,
+    async scan(ctx: ScanContext) {
+      const records = await discover(ctx.homedir, ctx.projectDir, ctx.extraSkillRoots);
+      return records.map(toSkillResource);
     },
   };
 }

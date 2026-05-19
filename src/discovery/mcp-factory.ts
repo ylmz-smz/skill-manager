@@ -1,7 +1,8 @@
-import { join } from "node:path";
 import type { McpServerRecord, McpToolId } from "../types.js";
 import { parseMcpServersFromJson } from "../utils/mcp.js";
 import { readTextIfExists } from "../utils/fs.js";
+import type { DiscoveryPort, ScanContext } from "./port.js";
+import { toMcpServerResource } from "../domain/convert.js";
 
 /**
  * Shared factory for MCP server adapters.
@@ -21,8 +22,10 @@ export interface McpAdapterConfig {
   notes?: (sourceKind: "user-global" | "project") => string | undefined;
 }
 
-export interface McpAdapter {
+export interface McpAdapter extends DiscoveryPort<"mcp_server"> {
+  /** Narrow the inherited `tool: ToolId` to the MCP-supported tools. */
   tool: McpToolId;
+  /** @deprecated Use `scan(ctx)` instead — prefer the Port API. */
   discover(homedir: string, projectDir?: string): Promise<McpServerRecord[]>;
 }
 
@@ -53,41 +56,51 @@ function recordsFromFile(
 }
 
 export function createMcpAdapter(cfg: McpAdapterConfig): McpAdapter {
-  return {
-    tool: cfg.tool,
-    async discover(homedir, projectDir) {
-      const byId = new Map<string, McpServerRecord>();
+  async function discover(
+    homedir: string,
+    projectDir?: string,
+  ): Promise<McpServerRecord[]> {
+    const byId = new Map<string, McpServerRecord>();
 
-      const userRaw = await readTextIfExists(cfg.userPath(homedir));
-      if (userRaw) {
+    const userRaw = await readTextIfExists(cfg.userPath(homedir));
+    if (userRaw) {
+      for (const r of recordsFromFile(
+        cfg.tool,
+        cfg.userPath(homedir),
+        "user-global",
+        userRaw,
+        cfg.notes,
+      )) {
+        byId.set(r.id, r);
+      }
+    }
+
+    if (projectDir) {
+      const projPath = cfg.projectPath(projectDir);
+      const projRaw = await readTextIfExists(projPath);
+      if (projRaw) {
         for (const r of recordsFromFile(
           cfg.tool,
-          cfg.userPath(homedir),
-          "user-global",
-          userRaw,
+          projPath,
+          "project",
+          projRaw,
           cfg.notes,
         )) {
           byId.set(r.id, r);
         }
       }
+    }
 
-      if (projectDir) {
-        const projPath = cfg.projectPath(projectDir);
-        const projRaw = await readTextIfExists(projPath);
-        if (projRaw) {
-          for (const r of recordsFromFile(
-            cfg.tool,
-            projPath,
-            "project",
-            projRaw,
-            cfg.notes,
-          )) {
-            byId.set(r.id, r);
-          }
-        }
-      }
+    return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  }
 
-      return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return {
+    tool: cfg.tool,
+    kind: "mcp_server",
+    discover,
+    async scan(ctx: ScanContext) {
+      const records = await discover(ctx.homedir, ctx.projectDir);
+      return records.map(toMcpServerResource);
     },
   };
 }
