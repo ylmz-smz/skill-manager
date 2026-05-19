@@ -25,6 +25,20 @@ function explainWriteFailure(filePath: string, err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err));
 }
 
+/**
+ * Pure transform: given a raw SKILL.md string, return what it would
+ * become after setting (or clearing) the `disable-model-invocation`
+ * frontmatter field. No I/O. Reusable by both the writer and the
+ * diff-preview path.
+ */
+export function applyDisableFlagToSkillMd(raw: string, disabled: boolean): string {
+  const parsed = matter(raw);
+  const data = { ...(parsed.data as Record<string, unknown>) };
+  if (disabled) data["disable-model-invocation"] = true;
+  else delete data["disable-model-invocation"];
+  return matter.stringify(parsed.content, data);
+}
+
 export async function setDisableModelInvocation(
   skillMdPath: string,
   disabled: boolean,
@@ -36,11 +50,7 @@ export async function setDisableModelInvocation(
   } catch (e) {
     throw explainWriteFailure(skillMdPath, e);
   }
-  const parsed = matter(raw);
-  const data = { ...(parsed.data as Record<string, unknown>) };
-  if (disabled) data["disable-model-invocation"] = true;
-  else delete data["disable-model-invocation"];
-  const next = matter.stringify(parsed.content, data);
+  const next = applyDisableFlagToSkillMd(raw, disabled);
   if (!dryRun) {
     try {
       await mkdir(dirname(skillMdPath), { recursive: true });
