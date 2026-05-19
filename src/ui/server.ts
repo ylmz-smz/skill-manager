@@ -22,6 +22,8 @@ import {
   SubagentToolIdSchema,
   ToolIdSchema,
 } from "../domain/schema.js";
+import { handleV2Apply, handleV2Preview, type PortContext } from "./api-v2.js";
+import { z } from "zod";
 
 // Process-wide event bus for change notifications. Subscribers (SSE clients
 // and any future in-process listeners) receive `{ kind, source, ts }` events.
@@ -134,6 +136,37 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
   // --- Mutations (POST) ---
   if (req.method === "POST") {
     const body = (await readJsonBody(req)) as any;
+
+    // --- v2: unified Resource preview / apply ---
+    if (
+      u.pathname === "/api/v2/resources/preview" ||
+      u.pathname === "/api/v2/resources/apply"
+    ) {
+      const ctx: PortContext = {
+        homedir,
+        projectDir,
+        unifiedRootSkills: config.unified?.roots?.skills,
+        unifiedRootAgents: config.unified?.roots?.agents,
+        mcpReadOnly: config.mcp?.readOnly,
+      };
+      try {
+        if (u.pathname === "/api/v2/resources/preview") {
+          const preview = await handleV2Preview(body, ctx);
+          json(res, 200, preview);
+        } else {
+          const result = await handleV2Apply(body, ctx);
+          if (result.applied) emitChange("mutation", u.pathname);
+          json(res, result.ok ? 200 : 400, result);
+        }
+      } catch (e) {
+        if (e instanceof z.ZodError) {
+          json(res, 400, { error: "Invalid request", issues: e.issues });
+        } else {
+          json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+      return true;
+    }
 
     if (u.pathname === "/api/v1/skills/disable" || u.pathname === "/api/v1/skills/enable") {
       const action = u.pathname.endsWith("/disable") ? "disable" : "enable";
