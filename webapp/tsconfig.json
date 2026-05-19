@@ -18,7 +18,8 @@
     "noEmit": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@domain/*": ["../src/domain/*"]
+      "@domain/*": ["../src/domain/*"],
+      "@src/*": ["../src/*"]
     }
   },
   "include": ["src", "index.html", "vite.config.ts"]
