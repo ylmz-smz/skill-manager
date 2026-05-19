@@ -10,6 +10,25 @@ import { resolveListToolFilter } from "../../ui/tool-filter.js";
 import { parseStrategy, parseTool, requireForceForDisable } from "../helpers.js";
 
 /**
+ * Print a stderr deprecation warning for legacy top-level commands.
+ *
+ * stderr (not stdout) so piping `skills-manager list --json | jq` keeps
+ * working. We colour the "warn:" tag yellow on TTY only — no-color
+ * envs (CI, NO_COLOR=1, non-TTY) get a plain prefix.
+ *
+ * v0.5 removes these top-level aliases. Until then they keep their
+ * v0.3 behaviour bit-for-bit; only the heads-up is new.
+ */
+function warnLegacy(legacyName: string, modernName: string): void {
+  const color = process.stderr.isTTY && !process.env.NO_COLOR;
+  const tag = color ? "\x1b[33mwarn:\x1b[0m" : "warn:";
+  process.stderr.write(
+    `${tag} \`${legacyName}\` is deprecated and will be removed in v0.5. ` +
+      `Use \`${modernName}\` instead.\n`,
+  );
+}
+
+/**
  * Legacy v1-style top-level skills commands.
  * Kept for backwards compatibility; prefer `skills ...`.
  */
@@ -34,6 +53,7 @@ export function registerLegacySkillsCommands(program: Command): void {
     .option("--global", "With --interactive + Claude: write user ~/.claude/settings.local.json")
     .option("--dry-run", "With --interactive: do not write files")
     .action(async (toolArg: string | undefined, opts: any) => {
+      warnLegacy("list", "skills list");
       const homedir = process.env.HOME || process.env.USERPROFILE || "";
       if (!homedir) throw new Error("Could not resolve home directory");
       if (opts.json && opts.interactive) {
@@ -84,6 +104,7 @@ export function registerLegacySkillsCommands(program: Command): void {
     .option("--dry-run", "Print actions without writing")
     .option("--force", "Confirm disable")
     .action(async (skillId: string, opts: any) => {
+      warnLegacy("disable", "skills disable");
       if (!opts.force) requireForceForDisable();
       const homedir = process.env.HOME || process.env.USERPROFILE || "";
       if (!homedir) throw new Error("Could not resolve home directory");
@@ -124,6 +145,7 @@ export function registerLegacySkillsCommands(program: Command): void {
     .option("--path <dir>", "Exact skill directory if id is ambiguous")
     .option("--dry-run", "Print actions without writing")
     .action(async (skillId: string, opts: any) => {
+      warnLegacy("enable", "skills enable");
       const homedir = process.env.HOME || process.env.USERPROFILE || "";
       if (!homedir) throw new Error("Could not resolve home directory");
       const parsedTool = parseTool(opts.tool);

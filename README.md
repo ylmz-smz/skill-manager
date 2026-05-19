@@ -2,265 +2,166 @@
   <strong>English</strong> | <a href="./README.zh-CN.md">中文</a>
 </p>
 
-# skills-manager
+# skill-manager
 
-A CLI tool for **discovering and managing**:
+> **The local AI dotfiles housekeeper for power users.**
 
-- **Skills** (`SKILL.md`)
-- **Subagents** (`.cursor/.claude/.codex agents/*.md`)
-- **MCP servers** (Cursor `mcp.json`, Claude Code `~/.claude.json` / `.mcp.json`)
+One `npm i -g`. One CLI, one local web UI. Manage **Skills**, **Subagents**, and **MCP servers** across **Cursor**, **Claude Code**, **Codex**, and **`~/.agents/skills`** — with **redacted diff previews** before any write.
 
-…across **Cursor**, **Claude Code**, **Codex compatibility paths**, and **`~/.agents/skills`**, with unified listing, scriptable JSON output, and safe reversible toggles.
+- **Cross-tool, cross-resource.** Four toolchains × three resource types in one inventory.
+- **Diff before write, secrets redacted.** Every `enable`/`disable` returns a unified diff first; `GITHUB_TOKEN` and friends are masked.
+- **Local-only, zero telemetry.** Single npm package; no cloud, no auth, no remote registry.
 
-## Background & Goals
+---
 
-Skills are scattered across multiple environments: Claude Code user/project directories and its plugin marketplace, Cursor user/project skills and built-in manifests, and the self-managed `~/.agents/skills`. Each has a different toggle mechanism — some use `settings.json` plugin switches, some use frontmatter flags, and Cursor built-in skills can only be managed inside the IDE.
+## Why this exists
 
-**skills-manager** aims to solve three problems:
+| Need | Today's options | This tool |
+| --- | --- | --- |
+| Discover MCP servers in a marketplace | Smithery, Glama, PulseMCP | not this — go there |
+| Install one MCP server via CLI | mcpm.sh | not this — go there |
+| **One inventory that spans Skills + Subagents + MCP across Cursor + Claude + Codex + Agents** | nothing | **this** |
+| **See exactly what `enable` will write — with secrets redacted — before pressing apply** | nothing | **this** |
 
-1. **Unified view**: Aggregate skills from all sources into a single list showing origin, status, and how the status was determined (config vs. archive state).
-2. **Scriptable**: `list --json` for CI/script integration; `enable` / `disable` with explicit strategy flags for automation.
-3. **Terminal-friendly**: `list --interactive` for picking and confirming enable/disable in a real terminal — no need to memorize verbose subcommand arguments (precise `enable`/`disable` still available).
+If you live in `~/.cursor/`, `~/.claude/`, `~/.codex/` simultaneously and you keep finding the same MCP server enabled in three different configs with three slightly different `env` blocks, this is for you.
 
-Design trade-offs: Claude prefers modifying **`enabledPlugins`** and **`disable-model-invocation`**; Cursor/Agents custom directories default to **whole-directory archival** under `~/.config/skill-manager/archive/`; Cursor **built-in skills** are display-only and not modifiable via this CLI.
+---
 
-## Feature Overview
-
-| Capability | Description |
-|------------|-------------|
-| Multi-source scan | Claude user/project skills, marketplace `SKILL.md`, Cursor user/project skills, built-in manifest (read-only), `~/.agents/skills` recursive |
-| Subagents scan | Cursor/Claude/Codex subagents under `~/.{cursor,claude,codex}/agents/` and `<project>/.{cursor,claude,codex}/agents/` |
-| MCP scan | Cursor: `~/.cursor/mcp.json` + `<project>/.cursor/mcp.json`; Claude Code: `~/.claude.json` + `<project>/.mcp.json` (project overrides) |
-| Local UI dashboard | `skills-manager ui` starts a local web dashboard (no secrets shown). Config tab supports **Form ⇄ JSON** editing + save |
-| Tabular listing | Grouped by tool; columns: checkbox `[x]`/`[ ]`, `skill-name`, `skill-desc`, `skill-path`, `skill-status` (enabled/disabled); paths abbreviated to `~/…` |
-| Interactive listing | `-i`: prints **full table** first; **selection only includes CLI-toggleable items** (built-ins omitted with notice); **current row** highlighted with `❯`, bottom summary shows **enabled/disabled and pending action** |
-| Imperative toggle | `enable` / `disable` with `--strategy`, `--path`, `--dry-run`, `--force` (for disable) |
-| Health check | `doctor`: validates state file, archive paths, and Claude settings readability |
-| Config files | Optional global & project YAML/JSON config for extra scan roots, unified management roots, and MCP write guard |
-
-## Installation & Usage
-
-### Install from npm (global command `skills-manager`)
-
-The package name is **`skill-manager-cli`** (`skills-manager` was already taken on npm). After installation the global command **`skills-manager`** is available:
+## Install
 
 ```bash
 npm install -g skill-manager-cli
-skills-manager list --help
-skills-manager list
+skills-manager --help
 ```
 
-Pre-publish local verification: `npm pack`, then `npm install -g ./skill-manager-cli-<version>.tgz`, then `skills-manager --version`.
+The package is `skill-manager-cli`; the binary is `skills-manager` (the un-prefixed name was already taken on npm).
 
-### From source (pnpm)
+Node ≥ 20.12 required.
+
+---
+
+## Quick tour
+
+### 1. See everything
 
 ```bash
-cd skill-manager
-pnpm install
-pnpm run build   # Required on first run or after source changes
-pnpm run skills-manager -- list
-pnpm run skills-manager -- list cursor              # Cursor only (positional arg)
-pnpm run skills-manager -- list -i cursor           # Interactive + Cursor only
-pnpm run skills-manager -- list -i -t agents        # Same: -t / --tool
-pnpm run skills-manager -- list --json
-# Or: pnpm run dev -- list
-# Or: node bin/skills-manager.mjs list
+skills-manager skills list           # all skills (any tool)
+skills-manager agents list           # all subagents
+skills-manager mcp list              # all MCP servers
+skills-manager ui                    # local web UI at http://127.0.0.1:3210
 ```
 
-**Note**: In this repo root, pnpm does **not** put the current package's `bin` on the executable path. Use **`pnpm run skills-manager -- …`**, or use `pnpm exec` after `pnpm link --global` or installing as a dependency in another project.
-
-Global link (optional): run `pnpm run build` then `pnpm link --global` in this repo.
-
-## UI dashboard
-
-Start a local dashboard (read-only by default; no secrets shown):
+### 2. Preview a change (no writes)
 
 ```bash
-skills-manager ui --port 8787
-skills-manager ui --port 8787 --project .
+skills-manager preview skill cursor my-skill --op disable
+skills-manager preview mcp claude-code github --op disable
+skills-manager preview subagent claude-code reviewer --op enable
 ```
 
-## Commands
+Output is git-style unified diff, ANSI-coloured on TTY, with:
+- `+/-` lines for the actual file change,
+- `redacted: GITHUB_TOKEN, OPENAI_API_KEY, …` after the diff,
+- per-strategy warnings (managed/symlink/native).
 
-| Command | Description |
-|---------|-------------|
-| `list` | (Compatibility) Scan and list skills; `--tool`, `--project`; `--json` for JSON output; `-i` / `--interactive` for interactive selection |
-| `skills` | Manage skills (`skills list|enable|disable`) |
-| `agents` | List and toggle subagents (`agents enable/disable`) |
-| `mcp` | List and toggle MCP servers (`mcp enable/disable`) — guarded by config + `--apply` |
-| `config` | Inspect/validate config files (`config path|validate`) |
-| `ui` | Start local web dashboard (`ui --port 8787 --project .`) |
-| `disable` | Disable a skill (requires `--force` or env `SKILLS_MANAGER_YES=1`; interactive mode confirms verbally) |
-| `enable` | Enable a skill |
-| `doctor` | Check `~/.config/skill-manager/state.json`, archive directories, and Claude settings |
+### 3. Apply (still reversible)
 
-### Config files (optional)
+After verifying the preview:
 
-Config supports **YAML or JSON**:
+```bash
+skills-manager skills disable --tool cursor my-skill --force
+skills-manager skills enable  --tool cursor my-skill
+skills-manager mcp disable    --tool claude-code github --apply
+```
 
-- **Global**: `~/.config/skill-manager/config.yaml` or `~/.config/skill-manager/config.json`
-- **Project**: `<project>/skill-manager.yaml` or `<project>/skill-manager.json`
+`disable` archives the resource under `~/.config/skill-manager/archive/`; `enable` restores it. MCP writes additionally back up `~/.claude.json` to `.claude.json.bak.<iso>`.
 
-Example:
+### 4. Doctor
+
+```bash
+skills-manager doctor    # validates state.json, archive paths, settings readability
+```
+
+---
+
+## The killer feature: redacted Diff Preview
+
+Every mutation goes through a `MutationPort` that exposes both `preview()` and `apply()`. The same diff the CLI shows is what the local UI's drawer shows is what `/api/v2/resources/preview` returns. One source of truth, three surfaces.
+
+Three syntactic positions are scrubbed in one pass:
+
+```
+"GITHUB_TOKEN": "ghp_***"          # JSON
+GITHUB_TOKEN=ghp_***               # shell args
+GITHUB_TOKEN: ghp_***              # YAML frontmatter
+```
+
+Plus everything an adapter declared under `envKeys` (read from the resource record itself). Conservative-by-default: in MCP previews, *every* env value is masked, including innocuous ones like `DEBUG=1`. The cost of over-masking is small; the cost of leaking is forever.
+
+---
+
+## Architecture (one paragraph)
+
+`src/domain/` defines a single `Resource` discriminated union (`skill | subagent | mcp_server`) backed by zod schemas — these schemas are the only shared contract between the CLI, the HTTP server, and the React UI. `src/discovery/*Port` implementations scan the disk; `src/mutation/*Port` implementations build the diff (`preview`) and run the write (`apply`). The HTTP layer (`src/ui/server.ts` + `src/ui/api-v2.ts`) is a thin zod-validated router. The frontend (`webapp/`) is a Vite + React + Tailwind + Zustand app whose build artefact is inlined into `src/ui/webapp.ts` so the npm package ships as a single tree.
+
+```
+src/domain/schema.ts ───────────┐
+                                │   (zod schemas)
+                                ▼
+        ┌── src/cli/commands ───┴── src/ui/api-v2.ts ──── webapp/src/api/types.ts
+        │                                                      │
+        ▼                                                      ▼
+   skills-manager preview …                          /api/v2/resources/{preview,apply}
+                                                      Diff drawer in the React UI
+```
+
+---
+
+## Configuration
+
+Optional. Read from `~/.config/skill-manager/config.{json,yaml}` and `<project>/.skills-manager.{json,yaml}` (project overrides user).
 
 ```yaml
-version: 1
 scan:
   extraSkillRoots:
-    - ~/my-skills
+    - ~/Repos/agent-skills
   extraAgentRoots:
-    - ~/my-agents
-mcp:
-  readOnly: true
-```
-
-### Unified management roots + symlink toggle (optional)
-
-You can centrally manage selected Skills / Subagents / MCP servers, and toggle them via **symlinks** (mount/unmount).
-
-```yaml
-version: 1
+    - ~/Repos/team-agents
 defaults:
-  strategy: symlink
+  strategy: auto                # auto | native | managed | symlink
+mcp:
+  readOnly: false               # set true to block all MCP writes
 unified:
-  mode: symlink
-  roots:
-    skills: ~/unified/skills
-    agents: ~/unified/agents
-    mcp: ~/unified/mcp
-  select:
-    # stored as array: "<tool>:<id>"
-    skills:
-      - cursor:my-skill
-      - claude-code:my-claude-skill
-    agents:
-      - cursor:verifier
-    mcp:
-      - cursor:github
-      - claude-code:my-server
+  roots:                        # used by --strategy symlink
+    skills: ~/.local/share/skill-manager/skills
+    agents: ~/.local/share/skill-manager/agents
 ```
 
-MCP unified directory layout (per-server):
+Inspect the resolved config via the UI's **Config** tab (form ⇄ JSON editor), or `skills-manager config show` from the CLI.
 
-```text
-<unified.mcp>/
-  servers/<tool>/<id>.json     # canonical server object
-  enabled/<tool>/<id>.json     # symlink -> servers/<tool>/<id>.json (exists = enabled)
-```
+---
 
-Commands:
+## API
 
-```bash
-skills-manager config path --project .
-skills-manager config validate --project .
-```
+The local server (`skills-manager ui`) exposes:
 
-### Subagents (agents)
+- `POST /api/v2/resources/preview` → returns a `DiffPreview` JSON. **Use this.**
+- `POST /api/v2/resources/apply`   → returns a `MutationResult` JSON. **Use this.**
+- `GET  /api/v1/{skills,agents,mcp}` → legacy list endpoints. Sent with `Deprecation: true` + `Sunset: 2026-12-31`. v0.5 removes them.
 
-List:
+Request schemas are the zod schemas in `src/domain/schema.ts`; do not invent your own shape.
 
-```bash
-skills-manager agents
-skills-manager agents --json
-skills-manager agents cursor --project .
-```
+---
 
-Toggle (managed archive, reversible):
+## Compatibility & safety
 
-```bash
-skills-manager agents disable --tool cursor verifier --force
-skills-manager agents enable --tool cursor verifier
-```
+- `state.json` schema version is `4`. Future bumps auto-migrate with a timestamped backup.
+- `disable` is reversible by design — files are moved, never deleted.
+- The CLI never writes outside `~/.config/skill-manager/`, the discovered resource path, or the configured `unified.roots`.
+- No network calls. Ever.
 
-### MCP servers (mcp)
-
-List:
-
-```bash
-skills-manager mcp
-skills-manager mcp cursor --project .
-skills-manager mcp --json
-```
-
-Write guard:
-
-- Writes are **disabled by default** via `mcp.readOnly: true`
-- Even when allowed, writes require `--apply`
-- Editing `~/.claude.json` requires `--force` and creates a timestamped backup
-
-Toggle:
-
-```bash
-# disable: remove from config and stash into state (reversible)
-skills-manager mcp disable --tool cursor github --apply
-
-# restore from state stash
-skills-manager mcp enable --tool cursor github --apply
-```
-
-Symlink-based MCP toggle (per-server):
-
-- When `unified.roots.mcp` is set and `<tool>:<id>` is listed under `unified.select.mcp`,
-  `skills-manager mcp enable/disable` toggles it via the unified directory + enabled symlink,
-  then syncs the generated set back into the tool MCP config JSON.
-
-**Common `list` options**
-
-- **Filter by tool**: `--tool` / **`-t`**, or equivalent **positional argument** `list [toolArg]`. Examples: `list cursor`, `list cc` (Claude), `list a` (agents), `list all` or omit for all. Conflicting `--tool` and positional arg raises an error.
-- `--project <dir>` — include project-level `.claude/skills`, `.cursor/skills`
-- `-i, --interactive` — requires **TTY**; prints formatted list, then pick a skill and confirm **enable** or **disable**
-- `--strategy auto|native|managed|symlink` — only affects subsequent toggle when used with `-i` (default: `auto`)
-- `--global` — with Claude + `-i`: write to user-level `~/.claude/settings.local.json`
-- `--dry-run` — with `-i`: simulate without writing to disk
-
-Non-interactive `enable`/`disable` also support: `--dry-run`, `--strategy`, `--path`, `--global`, etc.
-
-## "Enabled" Semantics & Default Strategy Per Tool
-
-| Tool | "Enabled" means | Default disable method | Notes |
-|------|-----------------|----------------------|-------|
-| **Claude Code** (plugin skills) | Present in merged `settings.json` / `settings.local.json` **`enabledPlugins`** | **native** | Writes to **`settings.local.json`** (project or user). `list` shows **`pluginKey`** for reference. |
-| **Claude Code** (user/project `SKILL.md`) | No `disable-model-invocation` flag | **native** | Modifies `SKILL.md` YAML frontmatter. |
-| **Cursor** (user/project `SKILL.md`) | No `disable-model-invocation` flag | **managed** | Moves skill directory to `~/.config/skill-manager/archive/cursor/<id>/`, state written to `state.json`. |
-| **Cursor** (built-in) | Shown as enabled in listing | Not via CLI | Toggle in **Cursor → Settings → Rules / Skills**. |
-| **Agents** | Same as Cursor custom skills | **managed** | Archived under `archive/agents/`. |
-
-To only modify frontmatter **without** moving directories, use **`--strategy native`** for Cursor/Agents.
-To use symlink mount/unmount with centralized roots, use **`--strategy symlink`** and configure `unified.*`.
-
-## Scan Paths Summary
-
-- **Claude**: `~/.claude/skills/*`, `<project>/.claude/skills/*`, `~/.claude/plugins/marketplaces/**/SKILL.md` (depth-limited).
-- **Cursor**: `~/.cursor/skills/*`, `<project>/.cursor/skills/*`, and read-only `~/.cursor/skills-cursor/.cursor-managed-skills-manifest.json`.
-- **Agents**: `~/.agents/skills/**/SKILL.md` (depth-limited).
-- **Subagents**: `~/.{cursor,claude,codex}/agents/*.md` and `<project>/.{cursor,claude,codex}/agents/*.md`
-- **MCP**: Cursor `~/.cursor/mcp.json` / `<project>/.cursor/mcp.json`; Claude `~/.claude.json` / `<project>/.mcp.json`
-
-## Local State File
-
-Managed disables are recorded in **`~/.config/skill-manager/state.json`**:
-
-- Skills/Subagents: archive metadata (reversible move)
-- MCP: stashed `mcpServers[id]` payload for reversible restore
- - Symlink mode: symlink-managed entries may be recorded so disabled items remain visible
-
-Use **`doctor`** for consistency checks.
-
-## Development
-
-```bash
-pnpm run dev -- list --tool all
-pnpm test
-```
-
-## Release
-
-```bash
-pnpm run release          # Interactive version selection (patch / minor / major)
-```
-
-The script automates: version bump → build → git tag → publish to npm. See `scripts/release.ts` for details.
+---
 
 ## License
 
-MIT
+MIT. See `LICENSE`.
