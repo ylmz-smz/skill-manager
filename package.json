@@ -12,8 +12,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsx scripts/build-web.ts && tsc",
-    "build:web": "tsx scripts/build-web.ts",
+    "build": "pnpm --filter @skill-manager/webapp build && tsx scripts/build-web.ts && tsc",
+    "build:web": "pnpm --filter @skill-manager/webapp build && tsx scripts/build-web.ts",
     "prepublishOnly": "npm run build",
     "dev": "tsx src/cli.ts",
     "skills-manager": "node ./bin/skills-manager.mjs",
