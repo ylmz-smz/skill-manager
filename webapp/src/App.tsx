@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import DiffDrawer from "./components/DiffDrawer";
 import FilterBar from "./components/FilterBar";
 import ResourceTable from "./components/ResourceTable";
+import Workbench from "./components/Workbench";
 import { useStore } from "./store";
 
 export default function App() {
+  const [view, setView] = useState<"workbench" | "resources">("workbench");
   const load = useStore((s) => s.load);
   const selected = useStore((s) => s.selected);
   const clearSelection = useStore((s) => s.clearSelection);
@@ -19,7 +21,11 @@ export default function App() {
       <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-baseline gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Skill Manager</h1>
-          <span className="text-xs text-zinc-500 font-mono">v0.4</span>
+          <span className="text-xs text-zinc-500 font-mono">v1.1</span>
+          <nav className="ml-5 flex gap-1" aria-label="主导航">
+            <button type="button" onClick={() => setView("workbench")} className={`rounded px-3 py-1.5 text-xs ${view === "workbench" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"}`}>Skills 工作台</button>
+            <button type="button" onClick={() => setView("resources")} className={`rounded px-3 py-1.5 text-xs ${view === "resources" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"}`}>全部资源</button>
+          </nav>
         </div>
         <div className="flex items-center gap-3 text-xs">
           <span className="text-zinc-500">
@@ -51,8 +57,7 @@ export default function App() {
       </header>
 
       <main className="flex-1 px-6 py-6 max-w-7xl mx-auto w-full">
-        <FilterBar />
-        <ResourceTable />
+        {view === "workbench" ? <Workbench /> : <><FilterBar /><ResourceTable /></>}
       </main>
 
       <footer className="border-t border-zinc-800 px-6 py-3 text-xs text-zinc-500">

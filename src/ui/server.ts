@@ -14,6 +14,7 @@ import { pickRecord, disableSkill, enableSkill } from "../core/control.js";
 import { pickSubagentRecord, disableSubagent, enableSubagent } from "../core/subagents-control.js";
 import { pickMcpRecord, disableMcpServer, disableMcpServerSymlink, enableMcpServer, enableMcpServerSymlink } from "../core/mcp-control.js";
 import { runDoctor } from "../core/doctor.js";
+import { applySyncPlan, buildSyncPlan, scanWorkbench } from "../core/workbench.js";
 import { WEBAPP_HTML } from "./webapp.js";
 import { lookupDescriptionI18n } from "./description-catalog.js";
 import type { McpToolId, SubagentToolId, ToolId } from "../types.js";
@@ -154,6 +155,18 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
   // --- Mutations (POST) ---
   if (req.method === "POST") {
     const body = (await readJsonBody(req)) as any;
+
+    if (u.pathname === "/api/v2/workbench/preview") {
+      const plan = await buildSyncPlan(body, homedir);
+      return json(res, 200, plan), true;
+    }
+
+    if (u.pathname === "/api/v2/workbench/apply") {
+      if (!body || typeof body.planId !== "string") throw new Error("planId is required");
+      const result = await applySyncPlan(body.planId);
+      emitChange("mutation", "workbench/apply");
+      return json(res, 200, result), true;
+    }
 
     // --- v2: unified Resource preview / apply ---
     if (
@@ -423,6 +436,13 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, homedir: str
     return json(res, 200, result), true;
   }
 
+  if (u.pathname === "/api/v2/workbench/inventory") {
+    const libraryPath = u.searchParams.get("libraryPath")
+      || config.unified?.roots?.skills
+      || join(homedir, ".local", "share", "skill-manager", "skills");
+    return json(res, 200, await scanWorkbench({ homedir, projectDir, libraryPath })), true;
+  }
+
   if (u.pathname === "/api/v1/skills") {
     const tool = "all";
     let rows = await listSkills({
@@ -589,4 +609,3 @@ export async function startUiServer(opts: {
     },
   };
 }
-
