@@ -54,6 +54,50 @@ export const DEFAULT_CONFIG: SkillManagerConfig = {
   },
 };
 
+function mergeStringArray(
+  base: string[] | undefined,
+  next: string[] | undefined,
+): string[] | undefined {
+  const merged = [...(base ?? []), ...(next ?? [])];
+  return merged.length ? merged : undefined;
+}
+
+function mergeUnified(
+  base: SkillManagerConfig["unified"],
+  next: SkillManagerConfig["unified"],
+): SkillManagerConfig["unified"] {
+  if (!base && !next) return undefined;
+  return {
+    mode: next?.mode ?? base?.mode,
+    roots: {
+      skills: next?.roots?.skills ?? base?.roots?.skills,
+      agents: next?.roots?.agents ?? base?.roots?.agents,
+      mcp: next?.roots?.mcp ?? base?.roots?.mcp,
+    },
+    select: {
+      skills: mergeStringArray(base?.select?.skills, next?.select?.skills),
+      agents: mergeStringArray(base?.select?.agents, next?.select?.agents),
+      mcp: mergeStringArray(base?.select?.mcp, next?.select?.mcp),
+    },
+  };
+}
+
+function mergeConfig(
+  base: SkillManagerConfig,
+  next: SkillManagerConfig,
+): SkillManagerConfig {
+  return {
+    ...base,
+    defaults: { ...base.defaults, ...next.defaults },
+    mcp: { ...base.mcp, ...next.mcp },
+    scan: {
+      extraSkillRoots: [...base.scan.extraSkillRoots, ...next.scan.extraSkillRoots],
+      extraAgentRoots: [...base.scan.extraAgentRoots, ...next.scan.extraAgentRoots],
+    },
+    unified: mergeUnified(base.unified, next.unified),
+  };
+}
+
 export function globalConfigPath(homedir: string): string {
   return join(configRoot(homedir), "config.yaml");
 }
@@ -191,29 +235,13 @@ export async function loadConfig(opts: {
   if (gYaml !== undefined) {
     sources.push(gYamlPath);
     const c = validateConfigShape(gYaml);
-    merged = {
-      ...merged,
-      defaults: { ...merged.defaults, ...c.defaults },
-      mcp: { ...merged.mcp, ...c.mcp },
-      scan: {
-        extraSkillRoots: [...merged.scan.extraSkillRoots, ...c.scan.extraSkillRoots],
-        extraAgentRoots: [...merged.scan.extraAgentRoots, ...c.scan.extraAgentRoots],
-      },
-    };
+    merged = mergeConfig(merged, c);
   }
   const gJson = await readJsonIfExists(gJsonPath);
   if (gJson !== undefined) {
     sources.push(gJsonPath);
     const c = validateConfigShape(gJson);
-    merged = {
-      ...merged,
-      defaults: { ...merged.defaults, ...c.defaults },
-      mcp: { ...merged.mcp, ...c.mcp },
-      scan: {
-        extraSkillRoots: [...merged.scan.extraSkillRoots, ...c.scan.extraSkillRoots],
-        extraAgentRoots: [...merged.scan.extraAgentRoots, ...c.scan.extraAgentRoots],
-      },
-    };
+    merged = mergeConfig(merged, c);
   }
 
   if (projectDir) {
@@ -223,29 +251,13 @@ export async function loadConfig(opts: {
     if (pYaml !== undefined) {
       sources.push(pYamlPath);
       const c = validateConfigShape(pYaml);
-      merged = {
-        ...merged,
-        defaults: { ...merged.defaults, ...c.defaults },
-        mcp: { ...merged.mcp, ...c.mcp },
-        scan: {
-          extraSkillRoots: [...merged.scan.extraSkillRoots, ...c.scan.extraSkillRoots],
-          extraAgentRoots: [...merged.scan.extraAgentRoots, ...c.scan.extraAgentRoots],
-        },
-      };
+      merged = mergeConfig(merged, c);
     }
     const pJson = await readJsonIfExists(pJsonPath);
     if (pJson !== undefined) {
       sources.push(pJsonPath);
       const c = validateConfigShape(pJson);
-      merged = {
-        ...merged,
-        defaults: { ...merged.defaults, ...c.defaults },
-        mcp: { ...merged.mcp, ...c.mcp },
-        scan: {
-          extraSkillRoots: [...merged.scan.extraSkillRoots, ...c.scan.extraSkillRoots],
-          extraAgentRoots: [...merged.scan.extraAgentRoots, ...c.scan.extraAgentRoots],
-        },
-      };
+      merged = mergeConfig(merged, c);
     }
   }
 

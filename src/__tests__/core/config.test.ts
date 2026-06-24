@@ -10,7 +10,7 @@ vi.mock("node:fs/promises", async () => {
     readFile: vi.fn(async (p: string) => {
       const norm = p.replace(/\\/g, "/");
       if (norm.endsWith("/.config/skill-manager/config.yaml")) {
-        return `version: 1\nscan:\n  extraAgentRoots:\n    - ~/x/agents\nmcp:\n  readOnly: true\n`;
+        return `version: 1\nscan:\n  extraAgentRoots:\n    - ~/x/agents\nmcp:\n  readOnly: true\nunified:\n  mode: symlink\n  roots:\n    skills: ~/unified/skills\n  select:\n    mcp:\n      - cursor:github\n`;
       }
       if (norm.endsWith("/.config/skill-manager/config.json")) {
         return JSON.stringify(
@@ -61,6 +61,9 @@ describe("loadConfig", () => {
     expect(config.scan.extraSkillRoots).toContain("/home/x/skills-json");
     expect(config.mcp.readOnly).toBe(false); // project overrides
     expect(config.defaults.strategy).toBe("managed");
+    expect(config.unified?.mode).toBe("symlink");
+    expect(config.unified?.roots?.skills).toBe("/home/unified/skills");
+    expect(config.unified?.select?.mcp).toEqual(["cursor:github"]);
   });
 });
 

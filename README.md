@@ -6,10 +6,10 @@
 
 > **The local AI dotfiles housekeeper for power users.**
 
-One `npm i -g`. One CLI, one local web UI. Manage **Skills**, **Subagents**, and **MCP servers** across **Cursor**, **Claude Code**, **Codex**, and **`~/.agents/skills`** — with **redacted diff previews** before any write.
+One `npm i -g`. One CLI, one local web UI. Manage **Skills**, **Subagents**, and **MCP servers** across the AI tools you actually use — with **redacted diff previews** before any write.
 
-- **Cross-tool, cross-resource.** Four toolchains × three resource types in one inventory.
-- **Diff before write, secrets redacted.** Every `enable`/`disable` returns a unified diff first; `GITHUB_TOKEN` and friends are masked.
+- **Cross-tool, cross-resource.** Skills for Claude Code, Cursor, VS Code, CodeBuddy, and `~/.agents/skills`; subagents for Cursor, Claude Code, and Codex; MCP for Cursor and Claude Code.
+- **Diff before write, secrets redacted.** Every preview/apply path uses the same unified diff; `GITHUB_TOKEN` and friends are masked.
 - **Local-only, zero telemetry.** Single npm package; no cloud, no auth, no remote registry.
 
 ---
@@ -20,10 +20,10 @@ One `npm i -g`. One CLI, one local web UI. Manage **Skills**, **Subagents**, and
 | --- | --- | --- |
 | Discover MCP servers in a marketplace | Smithery, Glama, PulseMCP | not this — go there |
 | Install one MCP server via CLI | mcpm.sh | not this — go there |
-| **One inventory that spans Skills + Subagents + MCP across Cursor + Claude + Codex + Agents** | nothing | **this** |
+| **One inventory that spans Skills + Subagents + MCP across local AI tool configs** | nothing | **this** |
 | **See exactly what `enable` will write — with secrets redacted — before pressing apply** | nothing | **this** |
 
-If you live in `~/.cursor/`, `~/.claude/`, `~/.codex/` simultaneously and you keep finding the same MCP server enabled in three different configs with three slightly different `env` blocks, this is for you.
+If you live in `~/.cursor/`, `~/.claude/`, `~/.codex/`, `.vscode/`, and `~/.agents/skills` simultaneously, and you keep finding the same capability enabled in three different configs with three slightly different `env` blocks, this is for you.
 
 ---
 
@@ -45,10 +45,11 @@ Node ≥ 20.12 required.
 ### 1. See everything
 
 ```bash
-skills-manager skills list           # all skills (any tool)
-skills-manager agents list           # all subagents
-skills-manager mcp list              # all MCP servers
-skills-manager ui                    # local web UI at http://127.0.0.1:3210
+skills-manager skills list             # all skills: claude-code/cursor/vscode/codebuddy/agents
+skills-manager skills list --tool vs   # VS Code / GitHub Copilot-style skills
+skills-manager agents --tool codex     # Codex subagents
+skills-manager mcp --tool cursor       # Cursor MCP servers
+skills-manager ui                      # local web UI at http://127.0.0.1:3210
 ```
 
 ### 2. Preview a change (no writes)
@@ -71,10 +72,11 @@ After verifying the preview:
 ```bash
 skills-manager skills disable --tool cursor my-skill --force
 skills-manager skills enable  --tool cursor my-skill
-skills-manager mcp disable    --tool claude-code github --apply
+skills-manager agents disable --tool codex reviewer --force
+skills-manager mcp disable    --tool claude-code github --apply --force
 ```
 
-`disable` archives the resource under `~/.config/skill-manager/archive/`; `enable` restores it. MCP writes additionally back up `~/.claude.json` to `.claude.json.bak.<iso>`.
+Skill and subagent `disable` archives the resource under `~/.config/skill-manager/archive/`; `enable` restores it. MCP `disable` removes the server from config and stashes the raw server object in `state.json`; `enable` restores it. Writes to global Claude MCP config (`~/.claude.json`) require `--force`.
 
 ### 4. Doctor
 
@@ -119,9 +121,10 @@ src/domain/schema.ts ───────────┐
 
 ## Configuration
 
-Optional. Read from `~/.config/skill-manager/config.{json,yaml}` and `<project>/.skills-manager.{json,yaml}` (project overrides user).
+Optional. Read from `~/.config/skill-manager/config.{json,yaml}` and `<project>/skill-manager.{json,yaml}` (project extends user config).
 
 ```yaml
+version: 1
 scan:
   extraSkillRoots:
     - ~/Repos/agent-skills
@@ -130,14 +133,20 @@ scan:
 defaults:
   strategy: auto                # auto | native | managed | symlink
 mcp:
-  readOnly: false               # set true to block all MCP writes
+  readOnly: true                # default; set false to allow MCP writes
 unified:
+  mode: symlink
   roots:                        # used by --strategy symlink
     skills: ~/.local/share/skill-manager/skills
     agents: ~/.local/share/skill-manager/agents
+    mcp: ~/.local/share/skill-manager/mcp
+  select:
+    mcp:
+      - cursor:github
+      - claude-code:github
 ```
 
-Inspect the resolved config via the UI's **Config** tab (form ⇄ JSON editor), or `skills-manager config show` from the CLI.
+Inspect and edit the resolved config via the UI's **Config** tab (form ⇄ JSON editor). From the CLI, use `skills-manager config path` to see loaded config files and `skills-manager config validate` to verify them.
 
 ---
 
@@ -147,6 +156,7 @@ The local server (`skills-manager ui`) exposes:
 
 - `POST /api/v2/resources/preview` → returns a `DiffPreview` JSON. **Use this.**
 - `POST /api/v2/resources/apply`   → returns a `MutationResult` JSON. **Use this.**
+- `GET  /api/v2/workbench/inventory` → scans the configured workbench library for sync candidates.
 - `GET  /api/v1/{skills,agents,mcp}` → legacy list endpoints. Sent with `Deprecation: true` + `Sunset: 2026-12-31`. v0.5 removes them.
 
 Request schemas are the zod schemas in `src/domain/schema.ts`; do not invent your own shape.

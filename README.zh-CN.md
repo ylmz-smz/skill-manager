@@ -6,10 +6,10 @@
 
 > **重度折腾派的本地 AI dotfiles 管家。**
 
-`npm i -g` 一行装好。一个 CLI、一套本地 Web UI，统一管理 **Cursor / Claude Code / Codex / `~/.agents/skills`** 上的 **Skills / Subagents / MCP servers**——**所有写盘操作都先返回脱敏后的 Diff**。
+`npm i -g` 一行装好。一个 CLI、一套本地 Web UI，统一管理你真正会用到的 **Skills / Subagents / MCP servers**——**所有写盘操作都先返回脱敏后的 Diff**。
 
-- **跨工具 × 跨资源类型**：4 个工具链 × 3 种资源，统一清单。
-- **改前 Diff + 密钥脱敏**：每一次 `enable` / `disable` 先返回 unified diff，`GITHUB_TOKEN` 等敏感值自动打码。
+- **跨工具 × 跨资源类型**：Claude Code / Cursor / VS Code / CodeBuddy / `~/.agents/skills` 的 Skills，Cursor / Claude Code / Codex 的 Subagents，Cursor / Claude Code 的 MCP。
+- **改前 Diff + 密钥脱敏**：preview/apply 走同一份 unified diff，`GITHUB_TOKEN` 等敏感值自动打码。
 - **纯本地、零遥测**：单 npm 包，无云依赖、无登录、无远程注册表。
 
 ---
@@ -20,10 +20,10 @@
 | --- | --- | --- |
 | 浏览 MCP 服务器目录 | Smithery / Glama / PulseMCP | 不是这个——去用上面的 |
 | 通过 CLI 安装单个 MCP 服务器 | mcpm.sh | 不是这个——去用 mcpm.sh |
-| **一份清单同时管 Skills + Subagents + MCP，跨 Cursor + Claude + Codex + Agents** | 空白 | **本工具** |
+| **一份清单同时管理本地 AI 工具配置里的 Skills + Subagents + MCP** | 空白 | **本工具** |
 | **写盘前就能看到改动内容（含脱敏），确认后再 apply** | 空白 | **本工具** |
 
-如果你同时折腾 `~/.cursor/`、`~/.claude/`、`~/.codex/`，而且经常发现"同一个 MCP server 在三处都开着、`env` 还略有差异"——这就是为你准备的。
+如果你同时折腾 `~/.cursor/`、`~/.claude/`、`~/.codex/`、`.vscode/` 和 `~/.agents/skills`，而且经常发现同一种能力在三处都开着、`env` 还略有差异——这就是为你准备的。
 
 ---
 
@@ -45,10 +45,11 @@ Node ≥ 20.12。
 ### 1. 查看所有资源
 
 ```bash
-skills-manager skills list           # 所有工具的 skills
-skills-manager agents list           # 所有 subagents
-skills-manager mcp list              # 所有 MCP servers
-skills-manager ui                    # 本地 Web UI，http://127.0.0.1:3210
+skills-manager skills list             # 所有 skills：claude-code/cursor/vscode/codebuddy/agents
+skills-manager skills list --tool vs   # VS Code / GitHub Copilot 风格 skills
+skills-manager agents --tool codex     # Codex subagents
+skills-manager mcp --tool cursor       # Cursor MCP servers
+skills-manager ui                      # 本地 Web UI，http://127.0.0.1:3210
 ```
 
 ### 2. 预览改动（不写盘）
@@ -70,10 +71,11 @@ skills-manager preview subagent claude-code reviewer --op enable
 ```bash
 skills-manager skills disable --tool cursor my-skill --force
 skills-manager skills enable  --tool cursor my-skill
-skills-manager mcp disable    --tool claude-code github --apply
+skills-manager agents disable --tool codex reviewer --force
+skills-manager mcp disable    --tool claude-code github --apply --force
 ```
 
-`disable` 把资源归档到 `~/.config/skill-manager/archive/`，`enable` 即可还原。MCP 写入 `~/.claude.json` 前会自动备份到 `.claude.json.bak.<iso>`。
+Skill 和 Subagent 的 `disable` 会把资源归档到 `~/.config/skill-manager/archive/`，`enable` 即可还原。MCP 的 `disable` 会从配置里移除 server，并把原始 server 对象暂存到 `state.json`；`enable` 再还原。写全局 Claude MCP 配置（`~/.claude.json`）需要 `--force`。
 
 ### 4. 体检
 
@@ -118,9 +120,10 @@ src/domain/schema.ts ───────────┐
 
 ## 配置
 
-可选。读取顺序：用户 `~/.config/skill-manager/config.{json,yaml}` → 项目 `<project>/.skills-manager.{json,yaml}`（项目覆盖用户）。
+可选。读取顺序：用户 `~/.config/skill-manager/config.{json,yaml}` → 项目 `<project>/skill-manager.{json,yaml}`（项目配置在用户配置基础上扩展）。
 
 ```yaml
+version: 1
 scan:
   extraSkillRoots:
     - ~/Repos/agent-skills
@@ -129,14 +132,20 @@ scan:
 defaults:
   strategy: auto                # auto | native | managed | symlink
 mcp:
-  readOnly: false               # 设为 true 可全局禁止 MCP 写入
+  readOnly: true                # 默认值；设为 false 才允许 MCP 写入
 unified:
+  mode: symlink
   roots:                        # --strategy symlink 时使用
     skills: ~/.local/share/skill-manager/skills
     agents: ~/.local/share/skill-manager/agents
+    mcp: ~/.local/share/skill-manager/mcp
+  select:
+    mcp:
+      - cursor:github
+      - claude-code:github
 ```
 
-可通过 UI 的 **Config** 标签（表单 ⇄ JSON 双向编辑）查看 / 修改，或在 CLI 用 `skills-manager config show`。
+可通过 UI 的 **Config** 标签（表单 ⇄ JSON 双向编辑）查看 / 修改。CLI 侧用 `skills-manager config path` 查看加载了哪些配置文件，用 `skills-manager config validate` 校验配置。
 
 ---
 
@@ -146,6 +155,7 @@ unified:
 
 - `POST /api/v2/resources/preview` → 返回 `DiffPreview` JSON。**首选**。
 - `POST /api/v2/resources/apply`   → 返回 `MutationResult` JSON。**首选**。
+- `GET  /api/v2/workbench/inventory` → 扫描配置的 workbench library，返回可同步候选项。
 - `GET  /api/v1/{skills,agents,mcp}` → 旧 list 接口。响应带 `Deprecation: true` + `Sunset: 2026-12-31`，v0.5 移除。
 
 请求体 schema 就是 `src/domain/schema.ts` 里的 zod schemas，请勿自造。
