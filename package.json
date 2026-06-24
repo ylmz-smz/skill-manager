@@ -1,6 +1,6 @@
 {
   "name": "skill-manager-cli",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "CLI to discover and enable/disable skills across Claude Code, Cursor, and ~/.agents/skills",
   "type": "module",
   "bin": {
